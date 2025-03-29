@@ -1,5 +1,6 @@
 package com.torneados.web.service;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -19,46 +20,49 @@ public class AuthService {
     }
 
     /**
+     * Busca un usuario por Google ID o lo crea si no existe (OAuth2).
+     */
+    public Usuario findOrCreateUser(OidcUser oidcUser) {
+        String googleId = oidcUser.getSubject();
+        String email = oidcUser.getAttribute("email");
+        String nombre = oidcUser.getAttribute("name");
+        String foto = oidcUser.getAttribute("picture");
+
+        return usuarioRepository.findByGoogleId(googleId)
+            .orElseGet(() -> {
+                Usuario newUser = new Usuario();
+                newUser.setGoogleId(googleId);
+                newUser.setEmail(email);
+                newUser.setNombre(nombre);
+                newUser.setFoto(foto);
+                newUser.setRol(Usuario.Rol.USUARIO);
+                return usuarioRepository.save(newUser);
+            });
+    }
+
+    /**
      * Obtiene el usuario autenticado desde el contexto de seguridad.
-     * Puede ser un OidcUser (OAuth2) o un User (JWT).
      */
     public Usuario getAuthenticatedUser() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("Usuario no autenticado");
+            throw new AccessDeniedException("Usuario no autenticado");
         }
 
         Object principal = authentication.getPrincipal();
 
-        // 1) Si el principal es OidcUser (autenticación por OAuth2)
         if (principal instanceof OidcUser oidcUser) {
-            return findOrCreateUser(oidcUser);
-        }
-
-        // 2) Si el principal es un User (autenticación por JWT)
-        if (principal instanceof User userDetails) {
-            String googleId = userDetails.getUsername();
+            String googleId = oidcUser.getSubject();
             return usuarioRepository.findByGoogleId(googleId)
-                    .orElseThrow(() -> new RuntimeException("Usuario no encontrado en la base de datos"));
+                    .orElseThrow(() -> new AccessDeniedException("Usuario no registrado en la base de datos"));
         }
 
-        throw new RuntimeException("Usuario no autenticado");
-    }
+        if (principal instanceof User userDetails) {
+            return usuarioRepository.findByGoogleId(userDetails.getUsername())
+                    .orElseThrow(() -> new AccessDeniedException("Usuario no registrado en la base de datos"));
+        }
 
-    /**
-     * Busca un usuario por Google ID o lo crea si no existe (para OAuth2).
-     */
-    public Usuario findOrCreateUser(OidcUser oidcUser) {
-        return usuarioRepository.findByGoogleId(oidcUser.getSubject())
-                .orElseGet(() -> {
-                    Usuario nuevoUsuario = new Usuario();
-                    nuevoUsuario.setGoogleId(oidcUser.getSubject());
-                    nuevoUsuario.setNombre(oidcUser.getAttribute("name"));
-                    nuevoUsuario.setEmail(oidcUser.getAttribute("email"));
-                    nuevoUsuario.setFoto(oidcUser.getAttribute("picture"));
-                    nuevoUsuario.setRol(Usuario.Rol.USUARIO); // Rol por defecto
-                    return usuarioRepository.save(nuevoUsuario);
-                });
+        throw new AccessDeniedException("Usuario no autenticado");
     }
 
     /**

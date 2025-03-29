@@ -72,7 +72,7 @@ public class TorneoService {
      */
     public Torneo getTorneoById(Long id) {
         return torneoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado con ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
     }
 
     
