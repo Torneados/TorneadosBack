@@ -6,6 +6,7 @@ import com.torneados.web.entities.Torneo;
 import com.torneados.web.entities.Usuario;
 import com.torneados.web.exceptions.BadRequestException;
 import com.torneados.web.exceptions.ResourceNotFoundException;
+import com.torneados.web.exceptions.UnauthorizedException;
 import com.torneados.web.exceptions.AccessDeniedException;
 import com.torneados.web.repositories.TorneoRepository;
 
@@ -20,35 +21,29 @@ public class TorneoService {
         this.authService = authService;
     }
 
-    /**
-     * Crea un nuevo torneo.
-     *
-     * @param torneo Objeto con los datos del torneo a crear.
-     * @return El torneo creado.
-     */
     public Torneo createTorneo(Torneo torneo) {
-        // Obtener el usuario autenticado
-        Usuario currentUser = authService.getAuthenticatedUser(); // Usuario autenticado vía JWT
-
-        // Verificar si el usuario tiene rol de ORGANIZADOR o ADMINISTRADOR
-        // if (!(currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR) || 
-        //       currentUser.getRol().equals(Usuario.Rol.ORGANIZADOR))) {
-        //     throw new AccessDeniedException("No tienes permisos para crear un torneo");
-        // }
-
-        // Validaciones básicas del torneo antes de guardarlo
-        if (torneo.getNombre() == null || torneo.getNombre().trim().isEmpty()) {
-            throw new BadRequestException("El torneo debe tener un nombre válido.");
+        Usuario currentUser = authService.getAuthenticatedUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("Debes estar autenticado para crear un torneo.");
         }
 
-        if (torneo.getDeporte() == null) {
-            throw new BadRequestException("El torneo debe tener un deporte asociado.");
+        if (torneo.getFechaFin().isBefore(torneo.getFechaComienzo())) {
+            throw new BadRequestException("La fecha de fin no puede ser anterior a la de comienzo.");
+        }
+        if (torneo.getEnlaceInstagram() != null && !torneo.getEnlaceInstagram().contains("instagram.com")) {
+            throw new BadRequestException("El enlace de Instagram no parece válido.");
+        }
+        if (torneo.getEnlaceFacebook() != null && !torneo.getEnlaceFacebook().contains("facebook.com")) {
+            throw new BadRequestException("El enlace de Facebook no parece válido.");
+        }
+        if (torneo.getEnlaceTwitter() != null && !torneo.getEnlaceTwitter().contains("twitter.com")) {
+            throw new BadRequestException("El enlace de Twitter no parece válido.");
         }
 
         // Asignar el usuario autenticado como creador del torneo
         torneo.setCreador(currentUser);
 
-        // Guardar el torneo en la base de datos
+        // Guardar en la base de datos
         return torneoRepository.save(torneo);
     }
 

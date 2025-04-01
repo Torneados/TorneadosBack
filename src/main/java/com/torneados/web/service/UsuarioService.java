@@ -30,12 +30,9 @@ public class UsuarioService {
         if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR)) {
             throw new AccessDeniedException("Sin permisos para crear un usuario");
         }
-        
-        if (usuario.getEmail() == null || usuario.getEmail().trim().isEmpty()) {
-            throw new BadRequestException("El email es obligatorio.");
-        }
-        if (usuario.getNombre() == null || usuario.getNombre().trim().isEmpty()) {
-            throw new BadRequestException("El nombre es obligatorio.");
+
+        if (usuarioRepository.findByEmail(usuario.getEmail()).isPresent()) {
+            throw new BadRequestException("Ya existe un usuario con ese email.");
         }
     
         return usuarioRepository.save(usuario);

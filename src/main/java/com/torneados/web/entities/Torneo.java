@@ -2,7 +2,14 @@ package com.torneados.web.entities;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.validator.constraints.URL;
+
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -10,43 +17,69 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class Torneo {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idTorneo;
-    
+
+    @NotBlank(message = "El nombre del torneo es obligatorio")
     private String nombre;
-    
+
+    private boolean esPublico;
+
     @Column(columnDefinition = "TEXT")
     private String descripcion;
-    
+
+    @NotBlank(message = "El lugar del torneo es obligatorio")
     private String lugar;
 
+    @NotNull(message = "El deporte es obligatorio")
     @ManyToOne
     @JoinColumn(name = "id_deporte")
     private Deporte deporte;
 
+    @Min(value = 1, message = "Debe haber al menos un equipo")
+    private int numEquipos;
+
+    @NotNull(message = "El tipo de torneo es obligatorio")
     @ManyToOne
     @JoinColumn(name = "id_tipo")
     private Tipo tipo;
 
+    @NotNull(message = "El estado del torneo no puede ser nulo")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EstadoTorneo estado;
 
+    @NotNull(message = "El creador del torneo es obligatorio")
     @ManyToOne
     @JoinColumn(name = "id_creador")
     private Usuario creador;
 
+    @NotNull(message = "La fecha de comienzo es obligatoria")
     private LocalDateTime fechaComienzo;
 
+    @NotNull(message = "La fecha de fin es obligatoria")
     private LocalDateTime fechaFin;
+
+    @Email(message = "El email debe tener un formato válido")
+    private String contactoEmail;
+
+    @Size(max = 20, message = "El teléfono no puede tener más de 20 caracteres")
+    private String contactoTelefono;
+
+    @URL(message = "El enlace de Instagram no es una URL válida")
+    private String enlaceInstagram;
+
+    @URL(message = "El enlace de Facebook no es una URL válida")
+    private String enlaceFacebook;
+
+    @URL(message = "El enlace de Twitter no es una URL válida")
+    private String enlaceTwitter;
 
     public enum EstadoTorneo {
         PENDIENTE,
         EN_CURSO,
         FINALIZADO
     }
-    
 }
-

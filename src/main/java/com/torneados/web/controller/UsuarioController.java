@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/usuarios")
@@ -38,7 +39,7 @@ public class UsuarioController {
         @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para crear usuario", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<Usuario> createUsuario(@RequestBody Usuario usuario) {
+    public ResponseEntity<Usuario> createUsuario(@Valid @RequestBody Usuario usuario) {
         Usuario createdUsuario = usuarioService.createUsuario(usuario);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
@@ -46,6 +47,7 @@ public class UsuarioController {
                 .toUri();
         return ResponseEntity.created(location).body(createdUsuario);
     }
+
 
 
     /**

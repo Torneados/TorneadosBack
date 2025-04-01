@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/torneos")
@@ -31,15 +32,16 @@ public class TorneoController {
     @Operation(summary = "Crear un nuevo torneo")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Created: Torneo creado correctamente", content = @Content),
-        @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos", content = @Content),
+        @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos o lógicos", content = @Content),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
         @ApiResponse(responseCode = "403", description = "Forbidden: Falta de permisos", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<Torneo> createTorneo(@RequestBody Torneo torneo) {
+    public ResponseEntity<Torneo> createTorneo(@Valid @RequestBody Torneo torneo) {
         Torneo nuevoTorneo = torneoService.createTorneo(torneo);
         return ResponseEntity.status(HttpStatus.CREATED).body(nuevoTorneo);
     }
+
 
     /**
      * Obtener todos los torneos (GET /torneos)
