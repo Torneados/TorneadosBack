@@ -4,8 +4,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import com.torneados.web.entities.Torneo;
 import com.torneados.web.entities.Usuario;
-import org.springframework.security.access.AccessDeniedException;
+import com.torneados.web.exceptions.BadRequestException;
 import com.torneados.web.exceptions.ResourceNotFoundException;
+import com.torneados.web.exceptions.AccessDeniedException;
 import com.torneados.web.repositories.TorneoRepository;
 
 @Service
@@ -18,7 +19,6 @@ public class TorneoService {
         this.torneoRepository = torneoRepository;
         this.authService = authService;
     }
-
 
     /**
      * Crea un nuevo torneo.
@@ -38,11 +38,11 @@ public class TorneoService {
 
         // Validaciones básicas del torneo antes de guardarlo
         if (torneo.getNombre() == null || torneo.getNombre().trim().isEmpty()) {
-            throw new IllegalArgumentException("El torneo debe tener un nombre válido.");
+            throw new BadRequestException("El torneo debe tener un nombre válido.");
         }
 
         if (torneo.getDeporte() == null) {
-            throw new IllegalArgumentException("El torneo debe tener un deporte asociado.");
+            throw new BadRequestException("El torneo debe tener un deporte asociado.");
         }
 
         // Asignar el usuario autenticado como creador del torneo
@@ -52,7 +52,6 @@ public class TorneoService {
         return torneoRepository.save(torneo);
     }
 
-
     /**
      * Obtiene una lista con todos los torneos.
      *
@@ -61,7 +60,6 @@ public class TorneoService {
     public List<Torneo> getAllTorneos() {
         return torneoRepository.findAll();
     }
-
 
     /**
      * Obtiene los datos de un torneo por su ID.
@@ -75,7 +73,6 @@ public class TorneoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
     }
 
-    
     /**
      * Borra un torneo, validando si el usuario autenticado tiene permisos para eliminarlo.
      *

@@ -20,7 +20,7 @@ public class TorneoController {
 
     private final TorneoService torneoService;
 
-    // Inyección de dependencias por constructor (recomendado)
+    // Inyección de dependencias por constructor
     public TorneoController(TorneoService torneoService) {
         this.torneoService = torneoService;
     }
@@ -72,8 +72,10 @@ public class TorneoController {
     @Operation(summary = "Eliminar un torneo por ID")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "No Content: Torneo eliminado correctamente", content = @Content),
+        @ApiResponse(responseCode = "400", description = "Bad Request: ID inválido", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Falta de permisos", content = @Content),
         @ApiResponse(responseCode = "404", description = "Not Found: Torneo no encontrado", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Forbidden: Falta de permisos", content = @Content)
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTorneo(@PathVariable Long id) {

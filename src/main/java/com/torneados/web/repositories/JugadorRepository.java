@@ -7,4 +7,7 @@ import java.util.Optional;
 public interface JugadorRepository extends JpaRepository<Jugador, Long> {
 
     Optional<Jugador> findByDni(String dni);
+    
+    boolean existsByDni(String dni);
+
 }
