@@ -9,6 +9,11 @@ public interface TorneoRepository extends JpaRepository<Torneo, Long> {
     // Consulta para buscar torneos por su estado
     List<Torneo> findByEstado(Torneo.EstadoTorneo estado);
     
-    // Consulta para buscar torneos por nombre (contiene, ignorando mayúsculas/minúsculas)
     List<Torneo> findByNombreContainingIgnoreCase(String nombre);
+    
+    List<Torneo> findByNombreContainingIgnoreCaseAndLugarContainingIgnoreCase(String nombre, String lugar);
+    
+    List<Torneo> findByNombreContainingIgnoreCaseAndDeporte_DeporteContainingIgnoreCase(String nombre, String deporte);
+    
+    List<Torneo> findByNombreContainingIgnoreCaseAndLugarContainingIgnoreCaseAndDeporte_DeporteContainingIgnoreCase(String nombre, String lugar, String deporte);
 }

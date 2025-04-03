@@ -1,14 +1,12 @@
 package com.torneados.web.controller;
 
 import java.net.URI;
-import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.torneados.web.entities.Equipo;
-import com.torneados.web.entities.Jugador;
 import com.torneados.web.service.EquipoService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,8 +31,7 @@ public class EquipoController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Created: Equipo creado correctamente", content = @Content),
         @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos", content = @Content),
-        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para crear el equipo", content = @Content)
+        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content)
     })
     @PostMapping
     public ResponseEntity<Equipo> createEquipo(@RequestBody Equipo equipo) {
@@ -47,63 +44,38 @@ public class EquipoController {
     }
 
     /**
-     * Obtener la lista de equipos de un usuario (GET /equipos/usuarios/{id_usuario})
-     * Opcionalmente se puede aplicar un filtro a través del parámetro "filtro".
+     * Obtener un equipo por ID (GET /equipos/{id})
      */
-    @Operation(summary = "Obtener equipos de un usuario")
+    @Operation(summary = "Obtener un equipo por ID")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK: Equipos obtenidos correctamente", content = @Content),
-        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Not Found: Usuario no encontrado", content = @Content)
-    })
-    @GetMapping("/usuarios/{id_usuario}")
-    public ResponseEntity<List<Equipo>> getEquiposByUsuario(
-            @PathVariable("id_usuario") Long idUsuario,
-            @RequestParam(value = "filtro", required = false) String filtro) {
-        List<Equipo> equipos;
-        if (filtro != null && !filtro.trim().isEmpty()) {
-            equipos = equipoService.getEquiposByUsuarioWithFilter(idUsuario, filtro);
-        } else {
-            equipos = equipoService.getEquiposByUsuario(idUsuario);
-        }
-        return ResponseEntity.ok(equipos);
-    }
-
-    /**
-     * Obtener la lista de jugadores que pertenecen a un equipo (GET /equipos/{id_equipo}/jugadores)
-     */
-    @Operation(summary = "Obtener jugadores de un equipo")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK: Jugadores obtenidos correctamente", content = @Content),
-        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
+        @ApiResponse(responseCode = "200", description = "OK: Equipo encontrado correctamente", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta autenticación", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para ver este equipo", content = @Content),
         @ApiResponse(responseCode = "404", description = "Not Found: Equipo no encontrado", content = @Content)
     })
-    @GetMapping("/{id_equipo}/jugadores")
-    public ResponseEntity<List<Jugador>> getJugadoresByEquipo(@PathVariable("id_equipo") Long idEquipo) {
-        List<Jugador> jugadores = equipoService.getJugadoresByEquipo(idEquipo);
-        return ResponseEntity.ok(jugadores);
+    @GetMapping("/{id}")
+    public ResponseEntity<Equipo> getEquipoById(@PathVariable Long id) {
+        Equipo equipo = equipoService.getEquipoById(id);
+        return ResponseEntity.ok(equipo);
     }
 
     /**
-     * Añadir un jugador a un equipo (POST /equipos/{id_equipo}/jugadores)
+     * Actualizar un equipo (PUT /equipos/{id_equipo})
      */
-    @Operation(summary = "Añadir un jugador a un equipo")
+    @Operation(summary = "Actualizar un equipo")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "201", description = "Created: Jugador añadido correctamente", content = @Content),
+        @ApiResponse(responseCode = "200", description = "OK: Equipo actualizado correctamente", content = @Content),
         @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos", content = @Content),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para actualizar el equipo", content = @Content),
         @ApiResponse(responseCode = "404", description = "Not Found: Equipo no encontrado", content = @Content)
     })
-    @PostMapping("/{id_equipo}/jugadores")
-    public ResponseEntity<Jugador> addJugadorToEquipo(@PathVariable("id_equipo") Long idEquipo,
-                                                       @RequestBody Jugador jugador) {
-        Jugador nuevoJugador = equipoService.addJugadorToEquipo(idEquipo, jugador);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(nuevoJugador.getIdJugador())
-                .toUri();
-        return ResponseEntity.created(location).body(nuevoJugador);
+    @PutMapping("/{id_equipo}")
+    public ResponseEntity<Equipo> updateEquipo(@PathVariable("id_equipo") Long idEquipo, @RequestBody Equipo equipo) {
+        Equipo equipoActualizado = equipoService.updateEquipo(idEquipo, equipo);
+        return ResponseEntity.ok(equipoActualizado);
     }
+
 
     /**
      * Eliminar un equipo (DELETE /equipos/{id_equipo})

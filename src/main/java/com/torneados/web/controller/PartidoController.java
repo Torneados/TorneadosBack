@@ -16,7 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 @RestController
-@RequestMapping("/partidos")
+@RequestMapping("/torneos/{idTorneo}/partidos")
 public class PartidoController {
 
     private final PartidoService partidoService;
@@ -27,58 +27,42 @@ public class PartidoController {
 
     /**
      * Crea un nuevo partido.
-     * Endpoint: POST /partidos
+     * Endpoint: POST /torneos/{idTorneo}/partidos
      */
     @Operation(summary = "Crear un nuevo partido")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Created: Partido creado correctamente", content = @Content),
-        @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos", content = @Content),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para crear el partido", content = @Content)
+        @ApiResponse(responseCode = "404", description = "Not Found: Torneo no encontrado", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<Partido> createPartido(@RequestBody Partido partido) {
-        Partido nuevoPartido = partidoService.createPartido(partido);
+    public ResponseEntity<Partido> createPartido(@PathVariable Long idTorneo, @RequestBody Partido partido) {
+        Partido nuevoPartido = partidoService.createPartido(partido, idTorneo);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-            .path("/{id}")
-            .buildAndExpand(nuevoPartido.getIdPartido())
-            .toUri();
+                .path("/{id}")
+                .buildAndExpand(nuevoPartido.getIdPartido())
+                .toUri();
         return ResponseEntity.created(location).body(nuevoPartido);
     }
 
     /**
-     * Obtiene los detalles de un partido por su ID.
-     * Endpoint: GET /partidos/{id}
-     */
-    @Operation(summary = "Obtener un partido por ID")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK: Partido obtenido correctamente", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Not Found: Partido no encontrado", content = @Content)
-    })
-    @GetMapping("/{id}")
-    public ResponseEntity<Partido> getPartidoById(@PathVariable Long id) {
-        Partido partido = partidoService.getPartidoById(id);
-        return ResponseEntity.ok(partido);
-    }
-
-    /**
      * Obtiene la lista de partidos asociados a un torneo.
-     * Endpoint: GET /partidos/torneo/{idTorneo}
+     * Endpoint: GET /torneos/{idTorneo}/partidos
      */
     @Operation(summary = "Obtener partidos de un torneo")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "OK: Partidos obtenidos correctamente", content = @Content),
         @ApiResponse(responseCode = "404", description = "Not Found: Torneo no encontrado", content = @Content)
     })
-    @GetMapping("/torneo/{idTorneo}")
+    @GetMapping
     public ResponseEntity<List<Partido>> getPartidosByTorneo(@PathVariable("idTorneo") Long idTorneo) {
         List<Partido> partidos = partidoService.getPartidosByTorneo(idTorneo);
         return ResponseEntity.ok(partidos);
     }
 
     /**
-     * Actualiza las estadísticas de un partido.
-     * Endpoint: PUT /partidos/{id}/estadisticas
+     * Actualiza la fecha de un partido.
+     * Endpoint: PUT /torneos/{idTorneo}/partidos/{idPartido}
      */
     @Operation(summary = "Actualizar estadísticas de un partido")
     @ApiResponses(value = {
@@ -88,26 +72,29 @@ public class PartidoController {
         @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para actualizar estadísticas", content = @Content),
         @ApiResponse(responseCode = "404", description = "Not Found: Partido no encontrado", content = @Content)
     })
-    @PutMapping("/{id}/estadisticas")
-    public ResponseEntity<Void> updatePartidoEstadisticas(@PathVariable Long id, @RequestBody Partido partidoActualizado) {
-        partidoService.updatePartidoEstadisticas(id, partidoActualizado);
+    @PutMapping("/{idPartido}")
+    public ResponseEntity<Void> updatePartido(@PathVariable Long idTorneo, @PathVariable Long idPartido,
+            @RequestBody Partido partidoActualizado) {
+        partidoService.updatePartido(idPartido, partidoActualizado, idTorneo);
         return ResponseEntity.noContent().build();
     }
+    
 
     /**
      * Elimina un partido.
-     * Endpoint: DELETE /partidos/{id}
+     * Endpoint: DELETE /torneos/{idTorneo}/partidos/{idPartido}
      */
     @Operation(summary = "Eliminar un partido")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "No Content: Partido eliminado correctamente", content = @Content),
+        @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos", content = @Content),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
         @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para eliminar el partido", content = @Content),
         @ApiResponse(responseCode = "404", description = "Not Found: Partido no encontrado", content = @Content)
     })
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePartido(@PathVariable Long id) {
-        partidoService.deletePartido(id);
+    @DeleteMapping("/{idPartido}")
+    public ResponseEntity<Void> deletePartido(@PathVariable Long idTorneo, @PathVariable Long idPartido) {
+        partidoService.deletePartido(idPartido, idTorneo);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,11 +1,13 @@
 package com.torneados.web.controller;
 
 import java.net.URI;
+import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.torneados.web.entities.Equipo;
 import com.torneados.web.entities.Usuario;
 import com.torneados.web.service.UsuarioService;
 
@@ -69,6 +71,26 @@ public class UsuarioController {
         return ResponseEntity.ok(usuario);
     }
 
+    /**
+     * Obtiene la lista de equipos de un usuario.
+     *
+     * GET /usuarios/{id_usuario}/equipos
+     *
+     * @param idUsuario El ID del usuario.
+     * @return La lista de equipos del usuario.
+     */
+    @Operation(summary = "Obtener los equipos de un usuario")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK: Equipos obtenidos correctamente", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta autenticación", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para acceder a los equipos de otros usuarios", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Not Found: Usuario no encontrado", content = @Content)
+    })
+    @GetMapping("/{id_usuario}/equipos")
+    public ResponseEntity<List<Equipo>> getEquiposByUsuario(@PathVariable("id_usuario") Long idUsuario) {
+        List<Equipo> equipos = usuarioService.getEquiposByUsuario(idUsuario);
+        return ResponseEntity.ok(equipos);
+    }
 
     /**
      * Actualiza un usuario. 

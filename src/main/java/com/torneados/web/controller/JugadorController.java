@@ -16,7 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 @RestController
-@RequestMapping("/jugadores")
+@RequestMapping("/equipos/{idEquipo}/jugadores")
 public class JugadorController {
 
     private final JugadorService jugadorService;
@@ -27,18 +27,18 @@ public class JugadorController {
 
     /**
      * Crea un nuevo jugador.
-     * Endpoint: POST /jugadores
+     * Endpoint: POST /equipos/{idEquipo}/jugadores
      */
     @Operation(summary = "Crear un nuevo jugador")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Created: Jugador creado correctamente", content = @Content),
         @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos", content = @Content),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para crear el jugador", content = @Content)
+        @ApiResponse(responseCode = "404", description = "Not Found: Equipo no encontrado", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<Jugador> createJugador(@RequestBody Jugador jugador) {
-        Jugador nuevoJugador = jugadorService.createJugador(jugador);
+    public ResponseEntity<Jugador> createJugador(@PathVariable Long idEquipo, @RequestBody Jugador jugador) {
+        Jugador nuevoJugador = jugadorService.createJugador(jugador, idEquipo);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(nuevoJugador.getIdJugador())
@@ -47,66 +47,54 @@ public class JugadorController {
     }
 
     /**
-     * Obtiene la lista de todos los jugadores.
-     * Endpoint: GET /jugadores
+     * Obtiene todos los jugadores de un equipo.
+     * Endpoint: GET /equipos/{idEquipo}/jugadores
      */
-    @Operation(summary = "Obtener todos los jugadores")
+    @Operation(summary = "Obtener todos los jugadores de un equipo")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK: Jugadores obtenidos correctamente", content = @Content)
+        @ApiResponse(responseCode = "200", description = "OK: Lista de jugadores obtenida correctamente", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Acceso denegado", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Not Found: Equipo no encontrado", content = @Content)
     })
     @GetMapping
-    public ResponseEntity<List<Jugador>> getAllJugadores() {
-        List<Jugador> jugadores = jugadorService.getAllJugadores();
+    public ResponseEntity<List<Jugador>> getJugadores(@PathVariable Long idEquipo) {
+        List<Jugador> jugadores = jugadorService.getJugadoresByEquipo(idEquipo);
         return ResponseEntity.ok(jugadores);
     }
 
     /**
-     * Obtiene un jugador por su ID.
-     * Endpoint: GET /jugadores/{id}
+     * Actualiza un jugador existente.
+     * Endpoint: PUT /equipos/{idEquipo}/jugadores/{idJugador}
      */
-    @Operation(summary = "Obtener un jugador por ID")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK: Jugador obtenido correctamente", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Not Found: Jugador no encontrado", content = @Content)
-    })
-    @GetMapping("/{id}")
-    public ResponseEntity<Jugador> getJugadorById(@PathVariable Long id) {
-        Jugador jugador = jugadorService.getJugadorById(id);
-        return ResponseEntity.ok(jugador);
-    }
-
-    /**
-     * Actualiza los datos de un jugador.
-     * Endpoint: PUT /jugadores/{id}
-     */
-    @Operation(summary = "Actualizar un jugador")
+    @Operation(summary = "Actualizar un jugador existente")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "OK: Jugador actualizado correctamente", content = @Content),
         @ApiResponse(responseCode = "400", description = "Bad Request: Datos inválidos", content = @Content),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para actualizar el jugador", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Not Found: Jugador no encontrado", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Forbidden: Acceso denegado", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Not Found: Jugador o equipo no encontrado", content = @Content)
     })
-    @PutMapping("/{id}")
-    public ResponseEntity<Jugador> updateJugador(@PathVariable Long id, @RequestBody Jugador jugadorActualizado) {
-        Jugador jugador = jugadorService.updateJugador(id, jugadorActualizado);
-        return ResponseEntity.ok(jugador);
+    @PutMapping("/{idJugador}")
+    public ResponseEntity<Jugador> updateJugador(@PathVariable Long idEquipo, @PathVariable Long idJugador, @RequestBody Jugador jugador) {
+        Jugador jugadorActualizado = jugadorService.updateJugador(idJugador, jugador, idEquipo);
+        return ResponseEntity.ok(jugadorActualizado);
     }
 
     /**
-     * Elimina un jugador.
-     * Endpoint: DELETE /jugadores/{id}
+     * Elimina un jugador existente.
+     * Endpoint: DELETE /equipos/{idEquipo}/jugadores/{idJugador}
      */
-    @Operation(summary = "Eliminar un jugador")
+    @Operation(summary = "Eliminar un jugador existente")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "No Content: Jugador eliminado correctamente", content = @Content),
         @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para eliminar el jugador", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Not Found: Jugador no encontrado", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Forbidden: Acceso denegado", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Not Found: Jugador o equipo no encontrado", content = @Content)
     })
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteJugador(@PathVariable Long id) {
-        jugadorService.deleteJugador(id);
+    @DeleteMapping("/{idJugador}")
+    public ResponseEntity<Void> deleteJugador(@PathVariable Long idEquipo, @PathVariable Long idJugador) {
+        jugadorService.deleteJugador(idJugador, idEquipo);
         return ResponseEntity.noContent().build();
     }
 }
