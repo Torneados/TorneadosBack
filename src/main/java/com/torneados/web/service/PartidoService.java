@@ -12,7 +12,8 @@ import com.torneados.web.exceptions.AccessDeniedException;
 import com.torneados.web.exceptions.BadRequestException;
 import com.torneados.web.repositories.PartidoRepository; import com.torneados.web.repositories.TorneoRepository;
 
-@Service public class PartidoService {
+@Service 
+public class PartidoService {
     private final PartidoRepository partidoRepository;
     private final TorneoRepository torneoRepository;
     private final AuthService authService;
