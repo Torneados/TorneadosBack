@@ -7,8 +7,8 @@ import com.torneados.web.entities.TorneoEquipos;
 import com.torneados.web.entities.ids.TorneoEquiposId;
 
 public interface TorneoEquiposRepository extends JpaRepository<TorneoEquipos, TorneoEquiposId> {
-    
-    List<TorneoEquipos> findByTorneoId(Long idTorneo);;
+
+    List<TorneoEquipos> findByIdTorneoIdTorneo(Long idTorneo);
 
 }
 

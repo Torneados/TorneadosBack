@@ -14,6 +14,10 @@ public class Jugador {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idJugador;
+
+    @ManyToOne
+    @JoinColumn(name = "id_equipo")
+    private Equipo equipo;
     
     @NotBlank(message = "El nombre del jugador es obligatorio")
     private String nombre;
@@ -21,10 +25,5 @@ public class Jugador {
     private String dni;
 
     private LocalDate fechaNacimiento;
-    
-    // Cada registro de Jugador está asociado a un único equipo
-    @ManyToOne
-    @JoinColumn(name = "id_equipo")
-    private Equipo equipo;
 }
 

@@ -20,5 +20,6 @@ public class Equipo {
     
     @NotBlank(message = "El nombre del equipo es obligatorio")
     private String nombre;
-}
 
+    private String logoUrl;
+}

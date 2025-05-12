@@ -6,12 +6,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.torneados.web.entities.Equipo;
+import com.torneados.web.entities.Torneo;
 import com.torneados.web.entities.Usuario;
 import com.torneados.web.exceptions.ResourceNotFoundException;
 import com.torneados.web.exceptions.UnauthorizedException;
 import com.torneados.web.exceptions.AccessDeniedException; // Usamos la excepción personalizada
 import com.torneados.web.exceptions.BadRequestException;
 import com.torneados.web.repositories.EquipoRepository;
+import com.torneados.web.repositories.TorneoRepository;
 import com.torneados.web.repositories.UsuarioRepository;
 
 @Service
@@ -19,11 +21,13 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final EquipoRepository equipoRepository;
+    private final TorneoRepository torneoRepository; 
     private final AuthService authService;
     
-    public UsuarioService(UsuarioRepository usuarioRepository, EquipoRepository equipoRepository, AuthService authService) {
+    public UsuarioService(UsuarioRepository usuarioRepository, EquipoRepository equipoRepository, TorneoRepository torneoRepository, AuthService authService) {
         this.usuarioRepository = usuarioRepository;
         this.equipoRepository = equipoRepository;
+        this.torneoRepository = torneoRepository;
         this.authService = authService;
     }
 
@@ -83,6 +87,30 @@ public class UsuarioService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + idUsuario));
         
         return equipoRepository.findByCreador(usuario);
+    }
+
+    /**
+     * Obtiene la lista de torneos de un usuario.
+     * 
+     * @param idUsuario El ID del usuario.
+     * @return La lista de torneos del usuario.
+     */
+    public List<Torneo> getTorneosByUsuario(Long idUsuario) {
+        // Verificar autenticación
+        Usuario currentUser = authService.getAuthenticatedUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("Falta autenticación");
+        }
+        
+        if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR) 
+                && !currentUser.getIdUsuario().equals(idUsuario)) {
+            throw new AccessDeniedException("Sin permisos para acceder a los torneos de otros usuarios");
+        }
+        
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + idUsuario));
+        
+        return torneoRepository.findByCreador(usuario);
     }
 
     

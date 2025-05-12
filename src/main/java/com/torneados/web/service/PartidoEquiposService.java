@@ -65,7 +65,6 @@ public class PartidoEquiposService {
                 .orElseThrow(() -> new ResourceNotFoundException("Equipo no encontrado.")));
         PartidoEquipos partidoEquipos = new PartidoEquipos();
         partidoEquipos.setId(partidoEquiposId);
-        partidoEquipos.setJuegos(0);
         partidoEquipos.setPuntos(0);
         return partidoEquiposRepository.save(partidoEquipos);
     }
@@ -80,10 +79,10 @@ public class PartidoEquiposService {
      * 
      * @throws ResourceNotFoundException Si el partido o el equipo no existen
      */
-    public List<PartidoEquipos> getPartidoEquiposByPartido(Long idPartido) {
+    public List<PartidoEquipos> getPartidoEquipos(Long idPartido) {
         partidoRepository.findById(idPartido)
                 .orElseThrow(() -> new ResourceNotFoundException("Partido no encontrado."));
-        List<PartidoEquipos> listaEquipos = partidoEquiposRepository.findByPartidoId(idPartido);
+        List<PartidoEquipos> listaEquipos = partidoEquiposRepository.findByIdPartidoIdPartido(idPartido);
         if (listaEquipos.isEmpty()) {
             throw new ResourceNotFoundException("No se encontraron estadisticas para el partido.");
         }
@@ -128,10 +127,47 @@ public class PartidoEquiposService {
                 .orElseThrow(() -> new ResourceNotFoundException("Estadisticas no encontradas."));
         
         // Actualizar los datos del equipo en el partido
-        partidoEquipos.setJuegos(partidoEquiposActualizado.getJuegos());
         partidoEquipos.setPuntos(partidoEquiposActualizado.getPuntos());
         
         return partidoEquiposRepository.save(partidoEquipos);
     }
+
+    /**
+     * Elimina las estadisticas de un equipo en un partido
+     * 
+     * @param idPartido ID del partido
+     * @param idEquipo ID del equipo
+     * 
+     * @throws UnauthorizedException Si el usuario no está autenticado
+     * @throws BadRequestException Si los datos del partido son inválidos
+     * @throws ResourceNotFoundException Si el partido o el equipo no existen
+     * @throws AccessDeniedException Si el usuario no tiene permiso para crear el partido
+     * 
+     */
+    public void deletePartidoEquipos(Long idPartido, Long idEquipo) {
+        // Verificar autenticación
+        Usuario currentUser = authService.getAuthenticatedUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("Falta autenticación");
+        }
+
+        // Validar que el partido existe y que el usuario tiene permiso para borrar las estadisticas del partido
+        Partido partido = partidoRepository.findById(idPartido)
+                .orElseThrow(() -> new ResourceNotFoundException("Partido no encontrado."));
+        if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR) 
+            && !partido.getTorneo().getCreador().equals(currentUser)) {
+            throw new AccessDeniedException("No tienes permiso para borrar estadisticas de este partido.");
+        }
+
+        // Obtener la relación entre el partido y el equipo
+        PartidoEquiposId partidoEquiposId = new PartidoEquiposId();
+        partidoEquiposId.setPartido(partido);
+        partidoEquiposId.setEquipo(equipoRepository.findById(idEquipo)
+                .orElseThrow(() -> new ResourceNotFoundException("Equipo no encontrado.")));
+        
+        // Eliminar las estadisticas del equipo en el partido
+        partidoEquiposRepository.deleteById(partidoEquiposId);
+    }
+    
 
 }

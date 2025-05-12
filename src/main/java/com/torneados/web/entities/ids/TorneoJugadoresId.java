@@ -1,9 +1,7 @@
 package com.torneados.web.entities.ids;
 
-import java.io.Serializable;
-
 import com.torneados.web.entities.Jugador;
-import com.torneados.web.entities.Partido;
+import com.torneados.web.entities.Torneo;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -12,15 +10,13 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @Embeddable
-public class PartidoJugadoresId implements Serializable {
+public class TorneoJugadoresId {
     
     @ManyToOne
-    @JoinColumn(name = "id_partido", nullable = false)
-    private Partido partido;
+    @JoinColumn(name = "id_torneo", nullable = false)
+    private Torneo torneo;
 
     @ManyToOne
     @JoinColumn(name = "id_jugador", nullable = false)
     private Jugador jugador;
-
-    private int numSet; 
 }

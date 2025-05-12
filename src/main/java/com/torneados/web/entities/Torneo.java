@@ -6,7 +6,6 @@ import org.hibernate.validator.constraints.URL;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -38,20 +37,12 @@ public class Torneo {
     @JoinColumn(name = "id_deporte")
     private Deporte deporte;
 
-    @Min(value = 1, message = "Debe haber al menos un equipo")
-    private int numEquipos;
-
     @NotNull(message = "El tipo de torneo es obligatorio")
     @ManyToOne
     @JoinColumn(name = "id_tipo")
     private Tipo tipo;
 
-    @NotNull(message = "El estado del torneo no puede ser nulo")
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private EstadoTorneo estado;
-
-    @NotNull(message = "El creador del torneo es obligatorio")
+    //@NotNull(message = "El creador del torneo es obligatorio")
     @ManyToOne
     @JoinColumn(name = "id_creador")
     private Usuario creador;
@@ -66,20 +57,19 @@ public class Torneo {
     private String contactoEmail;
 
     @Size(max = 20, message = "El teléfono no puede tener más de 20 caracteres")
+    @Column(nullable = true)
     private String contactoTelefono;
 
     @URL(message = "El enlace de Instagram no es una URL válida")
+    @Column(nullable = true)
     private String enlaceInstagram;
 
     @URL(message = "El enlace de Facebook no es una URL válida")
+    @Column(nullable = true)
     private String enlaceFacebook;
 
     @URL(message = "El enlace de Twitter no es una URL válida")
+    @Column(nullable = true)
     private String enlaceTwitter;
 
-    public enum EstadoTorneo {
-        PENDIENTE,
-        EN_CURSO,
-        FINALIZADO
-    }
 }

@@ -2,10 +2,13 @@ package com.torneados.web.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.Customizer;
+
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -22,16 +25,20 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable()) // Deshabilitar CSRF para APIs REST
+            .cors(Customizer.withDefaults()) // Habilitar CORS
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/public/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll() // Rutas públicas
-                .requestMatchers("/auth/user-info", "/auth/token", "/torneos").authenticated() // Protegidas
+                .requestMatchers(HttpMethod.GET, "/torneos","/torneos/**","/partidos/**", "/equipos", "/equipos/**", "/deportes", "/tipos", "/equipos").permitAll() // Rutas públicas (GET)
                 .requestMatchers("/admin/**").hasAuthority("ROLE_ADMINISTRADOR") // Solo admin
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
                 .userInfoEndpoint(userInfo -> userInfo
-                    .oidcUserService(new OidcUserService()) // Manejo de usuarios con OpenID Connect
+                    .oidcUserService(new OidcUserService())
                 )
+                .successHandler((request, response, authentication) -> {
+                    response.sendRedirect("/auth/redirect");
+                })
             )
             .logout(logout -> logout
                 .logoutSuccessUrl("/") // Redirigir al cerrar sesión

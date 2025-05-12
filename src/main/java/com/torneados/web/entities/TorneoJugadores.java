@@ -1,6 +1,6 @@
 package com.torneados.web.entities;
 
-import com.torneados.web.entities.ids.PartidoJugadoresId;
+import com.torneados.web.entities.ids.TorneoJugadoresId;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -9,12 +9,11 @@ import lombok.NoArgsConstructor;
 @Entity
 @Data
 @NoArgsConstructor
-public class PartidoJugadores {
+public class TorneoJugadores {
+     @EmbeddedId
+    private TorneoJugadoresId id; // Clave primaria compuesta (incluye torneo y jugador)
 
-    @EmbeddedId
-    private PartidoJugadoresId id; // Clave primaria compuesta (incluye partido, jugador y numSet)
-
-    private boolean jugado = false;
+    private int partidos = 0;
 
     private int puntos = 0;
 
@@ -22,4 +21,3 @@ public class PartidoJugadores {
 
     private int tarjetasRojas = 0;
 }
-

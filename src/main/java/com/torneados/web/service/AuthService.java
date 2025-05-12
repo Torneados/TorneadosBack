@@ -45,25 +45,22 @@ public class AuthService {
      */
     public Usuario getAuthenticatedUser() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
+    
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new AccessDeniedException("Usuario no autenticado");
         }
-
+    
         Object principal = authentication.getPrincipal();
-
-        if (principal instanceof OidcUser oidcUser) {
-            String googleId = oidcUser.getSubject();
+    
+        if (principal instanceof User userDetails) {
+            String googleId = userDetails.getUsername(); // el username que tú pusiste en el filtro
             return usuarioRepository.findByGoogleId(googleId)
                     .orElseThrow(() -> new AccessDeniedException("Usuario no registrado en la base de datos"));
         }
-
-        if (principal instanceof User userDetails) {
-            return usuarioRepository.findByGoogleId(userDetails.getUsername())
-                    .orElseThrow(() -> new AccessDeniedException("Usuario no registrado en la base de datos"));
-        }
-
+    
         throw new AccessDeniedException("Usuario no autenticado");
     }
+    
 
     /**
      * Genera un JWT para el usuario autenticado vía OAuth2.

@@ -31,7 +31,7 @@ public class PartidoService {
      * @param idTorneo ID del torneo al que pertenece el partido.
      * @return El partido creado.
      */
-    public Partido createPartido(Partido partido, Long idTorneo) {
+    public Partido createPartido(Long idTorneo) {
         // Verificar autenticación
         Usuario currentUser = authService.getAuthenticatedUser();
         if (currentUser == null) {
@@ -41,7 +41,7 @@ public class PartidoService {
         // Verificar que el torneo exista
         Torneo torneo = torneoRepository.findById(idTorneo)
                 .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado con id: " + idTorneo));
-        
+        Partido partido = new Partido();
         partido.setTorneo(torneo);
         
         return partidoRepository.save(partido);

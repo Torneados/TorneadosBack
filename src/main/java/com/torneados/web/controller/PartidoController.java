@@ -36,8 +36,8 @@ public class PartidoController {
         @ApiResponse(responseCode = "404", description = "Not Found: Torneo no encontrado", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<Partido> createPartido(@PathVariable Long idTorneo, @RequestBody Partido partido) {
-        Partido nuevoPartido = partidoService.createPartido(partido, idTorneo);
+    public ResponseEntity<Partido> createPartido(@PathVariable Long idTorneo) {
+        Partido nuevoPartido = partidoService.createPartido(idTorneo);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(nuevoPartido.getIdPartido())

@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.torneados.web.entities.Usuario;
 import com.torneados.web.service.AuthService;
 
+import io.jsonwebtoken.io.IOException;
+import jakarta.servlet.http.HttpServletResponse;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -20,17 +23,18 @@ public class AuthController {
     }
 
     /**
-     * Endpoint para obtener info del usuario autenticado.
+     * Endpoint para obtener info del usuario autenticado desde el JWT.
      */
     @GetMapping("/user-info")
-    public ResponseEntity<Usuario> getUserInfo(@AuthenticationPrincipal OidcUser user) {
-        if (user == null) {
-            return ResponseEntity.status(401).build(); // Unauthorized
+    public ResponseEntity<Usuario> getUserInfo() {
+        try {
+            Usuario usuario = authService.getAuthenticatedUser();
+            return ResponseEntity.ok(usuario);
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(null); // Unauthorized
         }
-
-        // Obtener o crear el usuario en la base de datos a través de AuthService
-        return ResponseEntity.ok(authService.findOrCreateUser(user));
     }
+
 
     /**
      * Endpoint para generar JWT cuando el usuario inicie sesión.
@@ -45,5 +49,21 @@ public class AuthController {
         String jwt = authService.generateJwt(user);
 
         return ResponseEntity.ok(jwt);
+    }
+    /**
+     * Endpoint de redirección tras login exitoso con Google OAuth.
+     * @throws java.io.IOException 
+     */
+    @GetMapping("/redirect")
+    public void redirectAfterLogin(@AuthenticationPrincipal OidcUser user, HttpServletResponse response) throws IOException, java.io.IOException {
+        if (user == null) {
+            response.sendRedirect("http://localhost:5173/login-error");
+            return;
+        }
+
+        Usuario usuario = authService.findOrCreateUser(user);
+        String token = authService.generateJwt(user);
+
+        response.sendRedirect("http://localhost:5173/auth/callback?token=" + token + "&id=" + usuario.getIdUsuario());
     }
 }

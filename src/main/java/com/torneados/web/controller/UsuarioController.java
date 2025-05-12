@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.torneados.web.entities.Equipo;
+import com.torneados.web.entities.Torneo;
 import com.torneados.web.entities.Usuario;
 import com.torneados.web.service.UsuarioService;
 
@@ -90,6 +91,27 @@ public class UsuarioController {
     public ResponseEntity<List<Equipo>> getEquiposByUsuario(@PathVariable("id_usuario") Long idUsuario) {
         List<Equipo> equipos = usuarioService.getEquiposByUsuario(idUsuario);
         return ResponseEntity.ok(equipos);
+    }
+
+    /**
+     * Obtiene la lista de equipos de un usuario.
+     * 
+     * GET /usuarios/{id_usuario}/torneos
+     * 
+     * @param idUsuario El ID del usuario.
+     * @return La lista de torneos del usuario.
+     */
+    @Operation(summary = "Obtener los torneos de un usuario")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK: Torneos obtenidos correctamente", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta autenticación", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para acceder a los torneos de otros usuarios", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Not Found: Usuario no encontrado", content = @Content)
+    })
+    @GetMapping("/{id_usuario}/torneos")
+    public ResponseEntity<List<Torneo>> getTorneosByUsuario(@PathVariable("id_usuario") Long idUsuario) {
+        List<Torneo> torneos = usuarioService.getTorneosByUsuario(idUsuario);
+        return ResponseEntity.ok(torneos);
     }
 
     /**

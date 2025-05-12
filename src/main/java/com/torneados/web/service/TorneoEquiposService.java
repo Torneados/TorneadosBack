@@ -85,7 +85,7 @@ public class TorneoEquiposService {
                 .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado."));
 
         // Obtener todos los equipos del torneo
-        return torneoEquiposRepository.findByTorneoId(idTorneo);
+        return torneoEquiposRepository.findByIdTorneoIdTorneo(idTorneo);
     }
 
     /**

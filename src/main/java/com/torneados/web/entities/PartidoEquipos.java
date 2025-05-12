@@ -14,6 +14,5 @@ public class PartidoEquipos {
     @EmbeddedId
     private PartidoEquiposId id; // Clave primaria compuesta (incluye partido, equipo y numSet)
 
-    private int juegos;
     private int puntos;
 }

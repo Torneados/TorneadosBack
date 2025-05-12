@@ -39,13 +39,13 @@ public class TorneoService {
         if (torneo.getFechaFin().isBefore(torneo.getFechaComienzo())) {
             throw new BadRequestException("La fecha de fin no puede ser anterior a la de comienzo.");
         }
-        if (torneo.getEnlaceInstagram() != null && !torneo.getEnlaceInstagram().contains("instagram.com")) {
+        if (torneo.getEnlaceInstagram() != null && !torneo.getEnlaceInstagram().equals("")  && !torneo.getEnlaceInstagram().contains("instagram.com")) {
             throw new BadRequestException("El enlace de Instagram no parece válido.");
         }
-        if (torneo.getEnlaceFacebook() != null && !torneo.getEnlaceFacebook().contains("facebook.com")) {
+        if (torneo.getEnlaceFacebook() != null && !torneo.getEnlaceFacebook().equals("") && !torneo.getEnlaceFacebook().contains("facebook.com")) {
             throw new BadRequestException("El enlace de Facebook no parece válido.");
         }
-        if (torneo.getEnlaceTwitter() != null && !torneo.getEnlaceTwitter().contains("twitter.com")) {
+        if (torneo.getEnlaceTwitter() != null && !torneo.getEnlaceTwitter().equals("") && !torneo.getEnlaceTwitter().contains("twitter.com")) {
             throw new BadRequestException("El enlace de Twitter no parece válido.");
         }
 
@@ -188,4 +188,7 @@ public class TorneoService {
         // Eliminar el torneo
         torneoRepository.delete(torneo);
     }
+
+    
+    
 }

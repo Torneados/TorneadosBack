@@ -2,12 +2,13 @@ package com.torneados.web.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.torneados.web.entities.Torneo;
+import com.torneados.web.entities.Usuario;
+
 import java.util.List;
 
 public interface TorneoRepository extends JpaRepository<Torneo, Long> {
 
-    // Consulta para buscar torneos por su estado
-    List<Torneo> findByEstado(Torneo.EstadoTorneo estado);
+    List<Torneo> findByCreador(Usuario creador);
     
     List<Torneo> findByNombreContainingIgnoreCase(String nombre);
     
