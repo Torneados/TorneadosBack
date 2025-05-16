@@ -46,7 +46,7 @@ public class PartidoJugadoresController {
     })
     @PostMapping("/{idJugador}")
     public ResponseEntity<PartidoJugadores> createPartidoJugadores(@PathVariable Long idPartido, @PathVariable Long idJugador) {
-        PartidoJugadores nuevoPartidoJugadores = partidoJugadoresService.createPartidoJugadores(idPartido, idJugador);
+        PartidoJugadores nuevoPartidoJugadores = partidoJugadoresService.createPartidoJugadores(idPartido, idJugador,0);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(nuevoPartidoJugadores.getId())

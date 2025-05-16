@@ -2,7 +2,10 @@ package com.torneados.web.entities;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.validator.constraints.URL;
+
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -34,17 +37,25 @@ public class Torneo {
 
     @NotNull(message = "El deporte es obligatorio")
     @ManyToOne
-    @JoinColumn(name = "id_deporte")
+    @JoinColumn(name = "id_deporte", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Deporte deporte;
 
-    @NotNull(message = "El tipo de torneo es obligatorio")
-    @ManyToOne
-    @JoinColumn(name = "id_tipo")
-    private Tipo tipo;
+    /** fase de liga (todos contra todos) */
+    private boolean liga;
 
-    //@NotNull(message = "El creador del torneo es obligatorio")
+    /** si liga==true, ¿se juega ida y vuelta? */
+    private boolean idaYVuelta;
+
+    /** fase de grupos */
+    private boolean grupos;
+
+    /** fase KO/eliminatoria */
+    private boolean eliminatoria;
+
     @ManyToOne
     @JoinColumn(name = "id_creador")
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Usuario creador;
 
     @NotNull(message = "La fecha de comienzo es obligatoria")
@@ -71,5 +82,4 @@ public class Torneo {
     @URL(message = "El enlace de Twitter no es una URL válida")
     @Column(nullable = true)
     private String enlaceTwitter;
-
 }

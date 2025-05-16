@@ -37,7 +37,7 @@ public class PartidoEquiposController {
     })
     @PostMapping("/{idEquipo}")
     public ResponseEntity<PartidoEquipos> createPartidoEquipos(@PathVariable Long idPartido, @PathVariable Long idEquipo) {
-        PartidoEquipos nuevoPartidoEquipos = partidoEquiposService.createPartidoEquipos(idPartido, idEquipo);
+        PartidoEquipos nuevoPartidoEquipos = partidoEquiposService.createPartidoEquipos(idPartido, idEquipo, 0, false);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(nuevoPartidoEquipos.getId())

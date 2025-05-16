@@ -2,12 +2,15 @@ package com.torneados.web.entities;
 
 import java.time.LocalDateTime;
 
+
 import com.torneados.web.entities.ids.SolicitudInscripcionId;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Data
@@ -16,18 +19,18 @@ import lombok.NoArgsConstructor;
 public class SolicitudInscripcion {
 
     @EmbeddedId
-    private SolicitudInscripcionId id = new SolicitudInscripcionId();
+    private SolicitudInscripcionId id;
 
+    @MapsId("torneo")
     @ManyToOne
-    @MapsId("idTorneo")
-    @JoinColumn(name = "id_torneo")
-    @NotNull(message = "El torneo es obligatorio")
+    @JoinColumn(name = "id_torneo", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Torneo torneo;
 
+    @MapsId("equipo")
     @ManyToOne
-    @MapsId("idEquipo")
-    @JoinColumn(name = "id_equipo")
-    @NotNull(message = "El equipo es obligatorio")
+    @JoinColumn(name = "id_equipo", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Equipo equipo;
 
     @Enumerated(EnumType.STRING)
@@ -43,4 +46,3 @@ public class SolicitudInscripcion {
         RECHAZADA
     }
 }
-

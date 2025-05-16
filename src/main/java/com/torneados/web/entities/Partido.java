@@ -5,6 +5,10 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+
 
 @Entity
 @Data
@@ -16,9 +20,11 @@ public class Partido {
     private Long idPartido;
     
     @ManyToOne
-    @JoinColumn(name = "id_torneo")
+    @JoinColumn(name = "id_torneo", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Torneo torneo;
     
     private LocalDateTime fechaComienzo;
-}
 
+    private int ronda;
+}

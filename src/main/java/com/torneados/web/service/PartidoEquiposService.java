@@ -43,7 +43,7 @@ public class PartidoEquiposService {
      * @throws AccessDeniedException Si el usuario no tiene permiso para crear el partido
      * 
      */
-    public PartidoEquipos createPartidoEquipos(Long idPartido, Long idEquipo) {
+    public PartidoEquipos createPartidoEquipos(Long idPartido, Long idEquipo, int numSet, boolean esLocal) {
         // Verificar autenticación
         Usuario currentUser = authService.getAuthenticatedUser();
         if (currentUser == null) {
@@ -63,9 +63,11 @@ public class PartidoEquiposService {
         partidoEquiposId.setPartido(partido);
         partidoEquiposId.setEquipo(equipoRepository.findById(idEquipo)
                 .orElseThrow(() -> new ResourceNotFoundException("Equipo no encontrado.")));
+        partidoEquiposId.setNumSet(numSet);
         PartidoEquipos partidoEquipos = new PartidoEquipos();
         partidoEquipos.setId(partidoEquiposId);
         partidoEquipos.setPuntos(0);
+        partidoEquipos.setEsLocal(esLocal);
         return partidoEquiposRepository.save(partidoEquipos);
     }
 

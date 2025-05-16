@@ -89,6 +89,21 @@ public class TorneoEquiposService {
     }
 
     /**
+     * Obtiene todos los equipos de un torneo que no han sido eliminados
+     *
+     * @param idTorneo El ID del torneo.
+     * @return La lista de equipos del torneo que no han sido eliminados.
+     */
+    public List<TorneoEquipos> getAllEquiposByTorneoAndNotEliminados(Long idTorneo) {
+        // Validar que el torneo existe
+        torneoRepository.findById(idTorneo)
+                .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado."));
+
+        // Obtener todos los equipos del torneo que no han sido eliminados
+        return torneoEquiposRepository.findByIdTorneoIdTorneoAndEliminadoFalse(idTorneo);
+    }
+
+    /**
      * Obtiene los datos de un equipo en un torneo
      * 
      * @param idTorneo El ID del torneo.
@@ -191,5 +206,6 @@ public class TorneoEquiposService {
 
         torneoEquiposRepository.deleteById(torneoEquiposId);
     }
+
 
 }

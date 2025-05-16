@@ -1,11 +1,18 @@
 package com.torneados.web.service;
 
-import java.util.List; 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service; 
-import org.springframework.transaction.annotation.Transactional; 
-import com.torneados.web.entities.Partido; 
-import com.torneados.web.entities.Torneo; 
-import com.torneados.web.entities.Usuario; 
+import org.springframework.transaction.annotation.Transactional;
+
+import com.torneados.web.entities.Partido;
+import com.torneados.web.entities.Torneo;
+import com.torneados.web.entities.TorneoEquipos;
+import com.torneados.web.entities.Usuario;
 import com.torneados.web.exceptions.ResourceNotFoundException;
 import com.torneados.web.exceptions.UnauthorizedException;
 import com.torneados.web.exceptions.AccessDeniedException;
@@ -16,11 +23,25 @@ import com.torneados.web.repositories.PartidoRepository; import com.torneados.we
 public class PartidoService {
     private final PartidoRepository partidoRepository;
     private final TorneoRepository torneoRepository;
+    private final PartidoEquiposService partidoEquiposService;
+    private final JugadorService jugadorService;
+    private final PartidoJugadoresService partidoJugadoresService;
+    private final TorneoEquiposService torneoEquiposService;
     private final AuthService authService;
 
-    public PartidoService(PartidoRepository partidoRepository, TorneoRepository torneoRepository, AuthService authService) {
+    public PartidoService(PartidoRepository partidoRepository, 
+                        TorneoRepository torneoRepository,
+                        PartidoEquiposService partidoEquiposService, 
+                        JugadorService jugadorService ,
+                        PartidoJugadoresService partidoJugadoresService ,
+                        TorneoEquiposService torneoEquiposService,
+                        AuthService authService) {
         this.partidoRepository = partidoRepository;
         this.torneoRepository = torneoRepository;
+        this.partidoEquiposService = partidoEquiposService;
+        this.jugadorService = jugadorService;
+        this.partidoJugadoresService = partidoJugadoresService;
+        this.torneoEquiposService = torneoEquiposService;
         this.authService = authService;
     }
 
@@ -148,6 +169,172 @@ public class PartidoService {
         // Eliminar el partido
         partidoRepository.delete(partidoExistente);
     }
+    
+
+    /* METODOS AUXILIARES PARA HACER SORTEO DE UN TORNEO */
+
+    /**
+     * 1. Reparte aleatoriamente los equipos en grupos (A, B, C…).
+     * 2. Guarda el campo grupo en TorneoEquipos.
+     * 3. Para cada grupo, genera un round-robin; si idaYVuelta==true genera también el partido de vuelta.
+     */
+    @Transactional
+    public void crearGrupos(Torneo torneo, List<TorneoEquipos> inscritos, boolean idaYVuelta) {
+        Collections.shuffle(inscritos);
+        int n = inscritos.size();
+        int numGrupos = calcularNumGrupos(n);
+
+        // 1) asignar letra de grupo
+        for (int i = 0; i < n; i++) {
+            TorneoEquipos te = inscritos.get(i);
+            String letra = String.valueOf((char)('A' + (i % numGrupos)));
+            te.setGrupo(letra);
+            TorneoEquipos patch = new TorneoEquipos();
+            patch.setGrupo(letra);
+            torneoEquiposService.updateEquipoInTorneo(
+                torneo.getIdTorneo(),
+                te.getId().getEquipo().getIdEquipo(),
+                patch
+            );
+        }
+
+        // 2) por cada grupo, round-robin
+        Map<String, List<TorneoEquipos>> porGrupo =
+            inscritos.stream().collect(Collectors.groupingBy(TorneoEquipos::getGrupo));
+        for (List<TorneoEquipos> grupo : porGrupo.values()) {
+            int m = grupo.size();
+            for (int i = 0; i < m; i++) {
+                for (int j = i + 1; j < m; j++) {
+                    crearPartido(grupo.get(i), grupo.get(j), 0, idaYVuelta);
+                }
+            }
+        }
+    }
+
+    /**
+     * 1. Prepara un “bracket” de tamaño potencia de 2 (null = bye).
+     * 2. Crea todos los partidos de todas las rondas “vacíos”.
+     */
+    @Transactional
+    public void crearEliminatorias(Torneo torneo, List<TorneoEquipos> inscritos) {
+        Collections.shuffle(inscritos);
+        int n = inscritos.size(), pot2 = 1;
+        while (pot2 < n) pot2 <<= 1;
+        int rondas = (int)(Math.log(pot2) / Math.log(2));
+
+        // bracket con null = bye
+        List<TorneoEquipos> bracket = new ArrayList<>(inscritos);
+        for (int i = n; i < pot2; i++) bracket.add(null);
+
+        // ronda 1
+        List<Partido> prev = new ArrayList<>();
+        for (int i = 0; i < bracket.size(); i += 2) {
+            prev.add(crearPartido(bracket.get(i), bracket.get(i+1), 1, false));
+        }
+
+        // rondas siguientes
+        for (int r = 2; r <= rondas; r++) {
+            List<Partido> next = new ArrayList<>();
+            for (int i = 0; i < prev.size(); i += 2) {
+                next.add(crearPartido(null, null, r, false));
+            }
+            prev = next;
+        }
+    }
+
+    private int calcularNumGrupos(int n) {
+        if (n < 4) throw new BadRequestException("Se necesitan al menos 4 equipos para fase de grupos.");
+        if (n < 8) return 2;
+        int tam = 4;
+        while (tam > 2 && (n % tam) != 0) tam--;
+        return (int)Math.ceil((double)n / tam);
+    }
+
+    /**
+ * Crea un partido (ida + opcional vuelta) y sus stats de equipo+jugadores.
+ */
+private Partido crearPartido(TorneoEquipos te1, TorneoEquipos te2, int ronda, boolean esIdaYVuelta) {
+    // 1) Construyo y guardo el partido de ida en una variable final
+    Partido partidoBase = new Partido();
+    partidoBase.setTorneo(te1 != null ? te1.getId().getTorneo() : te2.getId().getTorneo());
+    partidoBase.setRonda(ronda);
+    partidoBase.setFechaComienzo(null);
+    final Partido partidoIda = partidoRepository.save(partidoBase);
+
+    // 2) Estadísticas de equipos y jugadores para el partido de ida
+    if (te1 != null) {
+        partidoEquiposService.createPartidoEquipos(
+            partidoIda.getIdPartido(),
+            te1.getId().getEquipo().getIdEquipo(),
+            1,
+            true
+        );
+        jugadorService.getJugadoresByEquipo(te1.getId().getEquipo().getIdEquipo())
+            .forEach(j -> partidoJugadoresService.createPartidoJugadores(
+                partidoIda.getIdPartido(),
+                j.getIdJugador(),
+                1
+            ));
+    }
+    if (te2 != null) {
+        partidoEquiposService.createPartidoEquipos(
+            partidoIda.getIdPartido(),
+            te2.getId().getEquipo().getIdEquipo(),
+            1,
+            false
+        );
+        jugadorService.getJugadoresByEquipo(te2.getId().getEquipo().getIdEquipo())
+            .forEach(j -> partidoJugadoresService.createPartidoJugadores(
+                partidoIda.getIdPartido(),
+                j.getIdJugador(),
+                1
+            ));
+    }
+
+    // 3) Partido de vuelta (solo si es ida y vuelta), también guardado en variable final
+    if (esIdaYVuelta) {
+        Partido partidoBaseVuelta = new Partido();
+        partidoBaseVuelta.setTorneo(partidoIda.getTorneo());
+        partidoBaseVuelta.setRonda(ronda);
+        partidoBaseVuelta.setFechaComienzo(null);
+        final Partido partidoVuelta = partidoRepository.save(partidoBaseVuelta);
+
+        if (te2 != null) {
+            partidoEquiposService.createPartidoEquipos(
+                partidoVuelta.getIdPartido(),
+                te2.getId().getEquipo().getIdEquipo(),
+                1,
+                true
+            );
+            jugadorService.getJugadoresByEquipo(te2.getId().getEquipo().getIdEquipo())
+                .forEach(j -> partidoJugadoresService.createPartidoJugadores(
+                    partidoVuelta.getIdPartido(),
+                    j.getIdJugador(),
+                    1
+                ));
+        }
+        if (te1 != null) {
+            partidoEquiposService.createPartidoEquipos(
+                partidoVuelta.getIdPartido(),
+                te1.getId().getEquipo().getIdEquipo(),
+                1,
+                false
+            );
+            jugadorService.getJugadoresByEquipo(te1.getId().getEquipo().getIdEquipo())
+                .forEach(j -> partidoJugadoresService.createPartidoJugadores(
+                    partidoVuelta.getIdPartido(),
+                    j.getIdJugador(),
+                    1
+                ));
+        }
+    }
+
+    // Devuelvo el partido de ida
+    return partidoIda;
+}
+
+
+
     
 }
 

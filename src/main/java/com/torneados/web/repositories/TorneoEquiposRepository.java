@@ -10,5 +10,8 @@ public interface TorneoEquiposRepository extends JpaRepository<TorneoEquipos, To
 
     List<TorneoEquipos> findByIdTorneoIdTorneo(Long idTorneo);
 
+    //Equipos en un torneo que no han sido eliminados
+    List<TorneoEquipos> findByIdTorneoIdTorneoAndEliminadoFalse(Long idTorneo);
+
 }
 

@@ -1,25 +1,41 @@
 package com.torneados.web.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import org.springframework.stereotype.Service;
 
-import com.torneados.web.entities.Torneo;
-import com.torneados.web.entities.Usuario;
-import com.torneados.web.exceptions.BadRequestException;
-import com.torneados.web.exceptions.ResourceNotFoundException;
-import com.torneados.web.exceptions.UnauthorizedException;
-import com.torneados.web.exceptions.AccessDeniedException;
-import com.torneados.web.repositories.TorneoRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.torneados.web.entities.*;
+import com.torneados.web.entities.SolicitudInscripcion.Estado;
+import com.torneados.web.entities.ids.SolicitudInscripcionId;
+import com.torneados.web.exceptions.*;
+import com.torneados.web.repositories.*;
 
 @Service
 public class TorneoService {
 
     private final TorneoRepository torneoRepository;
     private final AuthService authService;
+    private final SolicitudInscripcionRepository solicitudInscripcionRepository;
+    private final TorneoEquiposService torneoEquiposService;
+    private final TorneoJugadoresService torneoJugadoresService;
+    private final JugadorRepository jugadorRepository;
+    private final PartidoService partidoService;
 
-    public TorneoService(TorneoRepository torneoRepository, AuthService authService) {
+    public TorneoService(TorneoRepository torneoRepository, AuthService authService,
+                         SolicitudInscripcionRepository solicitudInscripcionRepository,
+                         TorneoEquiposService torneoEquiposService,
+                         TorneoJugadoresService torneoJugadoresService,
+                         JugadorRepository jugadorRepository,
+                         PartidoService partidoService) {
         this.torneoRepository = torneoRepository;
         this.authService = authService;
+        this.solicitudInscripcionRepository = solicitudInscripcionRepository;
+        this.torneoEquiposService = torneoEquiposService;
+        this.torneoJugadoresService = torneoJugadoresService;
+        this.jugadorRepository = jugadorRepository;
+        this.partidoService = partidoService;
     }
 
     /**
@@ -39,7 +55,7 @@ public class TorneoService {
         if (torneo.getFechaFin().isBefore(torneo.getFechaComienzo())) {
             throw new BadRequestException("La fecha de fin no puede ser anterior a la de comienzo.");
         }
-        if (torneo.getEnlaceInstagram() != null && !torneo.getEnlaceInstagram().equals("")  && !torneo.getEnlaceInstagram().contains("instagram.com")) {
+        if (torneo.getEnlaceInstagram() != null && !torneo.getEnlaceInstagram().equals("") && !torneo.getEnlaceInstagram().contains("instagram.com")) {
             throw new BadRequestException("El enlace de Instagram no parece válido.");
         }
         if (torneo.getEnlaceFacebook() != null && !torneo.getEnlaceFacebook().equals("") && !torneo.getEnlaceFacebook().contains("facebook.com")) {
@@ -49,10 +65,7 @@ public class TorneoService {
             throw new BadRequestException("El enlace de Twitter no parece válido.");
         }
 
-        // Asignar el usuario autenticado como creador del torneo
         torneo.setCreador(currentUser);
-
-        // Guardar en la base de datos
         return torneoRepository.save(torneo);
     }
 
@@ -75,16 +88,12 @@ public class TorneoService {
      */
     public List<Torneo> getTorneosFiltrados(String filtroNombre, String filtroLugar, String filtroDeporte) {
         if ((filtroLugar == null || filtroLugar.isEmpty()) && (filtroDeporte == null || filtroDeporte.isEmpty())) {
-            // Solo se filtra por nombre
             return torneoRepository.findByNombreContainingIgnoreCase(filtroNombre);
         } else if (filtroLugar != null && !filtroLugar.isEmpty() && (filtroDeporte == null || filtroDeporte.isEmpty())) {
-            // Filtrado por nombre y lugar
             return torneoRepository.findByNombreContainingIgnoreCaseAndLugarContainingIgnoreCase(filtroNombre, filtroLugar);
         } else if ((filtroLugar == null || filtroLugar.isEmpty()) && filtroDeporte != null && !filtroDeporte.isEmpty()) {
-            // Filtrado por nombre y deporte
             return torneoRepository.findByNombreContainingIgnoreCaseAndDeporte_DeporteContainingIgnoreCase(filtroNombre, filtroDeporte);
         } else {
-            // Filtrado por los tres criterios
             return torneoRepository.findByNombreContainingIgnoreCaseAndLugarContainingIgnoreCaseAndDeporte_DeporteContainingIgnoreCase(
                 filtroNombre, filtroLugar, filtroDeporte);
         }
@@ -101,7 +110,6 @@ public class TorneoService {
         return torneoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
     }
-
 
     /**
      * Actualiza un torneo, validando si el usuario autenticado tiene permisos para modificarlo.
@@ -122,13 +130,11 @@ public class TorneoService {
         Torneo torneoExistente = torneoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
 
-        // Comprobar permisos: Solo ADMIN o el creador del torneo pueden modificarlo
         if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR)
                 && !torneoExistente.getCreador().getIdUsuario().equals(currentUser.getIdUsuario())) {
             throw new AccessDeniedException("No tienes permisos para modificar este torneo");
         }
 
-        // Validar fechas
         if (torneo.getFechaFin() != null && torneo.getFechaComienzo() != null) {
             if (torneo.getFechaFin().isBefore(torneo.getFechaComienzo())) {
                 throw new BadRequestException("La fecha de fin no puede ser anterior a la de comienzo.");
@@ -144,7 +150,6 @@ public class TorneoService {
             throw new BadRequestException("El enlace de Twitter no parece válido.");
         }
 
-        // Actualizar los datos del torneo
         torneoExistente.setNombre(torneo.getNombre());
         torneoExistente.setLugar(torneo.getLugar());
         torneoExistente.setFechaComienzo(torneo.getFechaComienzo());
@@ -153,10 +158,8 @@ public class TorneoService {
         torneoExistente.setEnlaceFacebook(torneo.getEnlaceFacebook());
         torneoExistente.setEnlaceTwitter(torneo.getEnlaceTwitter());
 
-        // Guardar en la base de datos
         return torneoRepository.save(torneoExistente);
     }
-
 
     /**
      * Borra un torneo, validando si el usuario autenticado tiene permisos para eliminarlo.
@@ -166,7 +169,7 @@ public class TorneoService {
      * @throws ResourceNotFoundException Si el torneo no existe.
      */
     public void deleteTorneo(Long id) {
-        Usuario currentUser = authService.getAuthenticatedUser(); 
+        Usuario currentUser = authService.getAuthenticatedUser();
 
         if (currentUser == null) {
             throw new UnauthorizedException("Debes estar autenticado para eliminar un torneo.");
@@ -179,16 +182,157 @@ public class TorneoService {
         Torneo torneo = torneoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado con ID: " + id));
 
-        // Comprobar permisos: Solo ADMIN o el creador del torneo pueden eliminarlo
         if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR)
                 && !torneo.getCreador().getIdUsuario().equals(currentUser.getIdUsuario())) {
             throw new AccessDeniedException("No tienes permisos para eliminar este torneo");
         }
 
-        // Eliminar el torneo
         torneoRepository.delete(torneo);
     }
 
-    
-    
+    /**
+     * Obtiene una lista de solicitudes de inscripción para un torneo específico.
+     *
+     * @param idTorneo ID del torneo.
+     * @return Lista de solicitudes de inscripción.
+     * @throws ResourceNotFoundException Si el torneo no existe.
+     */
+    public List<SolicitudInscripcion> getSolicitudesInscripcion(Long idTorneo) {
+        Torneo torneo = torneoRepository.findById(idTorneo)
+            .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado con ID: " + idTorneo));
+
+        return solicitudInscripcionRepository.findByIdTorneo(torneo);
+    }
+
+    /**
+     * Cambia el estado de una solicitud de inscripción.
+     * Si se acepta, el equipo es añadido al torneo automáticamente.
+     *
+     * @param idSolicitud ID compuesto de la solicitud.
+     * @param nuevoEstado Nuevo estado a asignar.
+     * @throws UnauthorizedException Si no hay usuario autenticado.
+     * @throws ResourceNotFoundException Si la solicitud no existe.
+     * @throws AccessDeniedException Si el usuario no tiene permisos.
+     * @throws BadRequestException Si el equipo ya está inscrito y se intenta aceptar de nuevo.
+     */
+    public void cambiarEstadoSolicitudInscripcion(SolicitudInscripcionId idSolicitud, Estado nuevoEstado) {
+        Usuario currentUser = authService.getAuthenticatedUser();
+
+        if (currentUser == null) {
+            throw new UnauthorizedException("Debes estar autenticado para modificar una solicitud.");
+        }
+
+        SolicitudInscripcion solicitud = solicitudInscripcionRepository.findById(idSolicitud)
+            .orElseThrow(() -> new ResourceNotFoundException("Solicitud de inscripción no encontrada"));
+
+        if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR)
+                && !solicitud.getId().getTorneo().getCreador().getIdUsuario().equals(currentUser.getIdUsuario())) {
+            throw new AccessDeniedException("No tienes permisos para modificar esta solicitud");
+        }
+
+        solicitud.setEstado(nuevoEstado);
+        solicitudInscripcionRepository.save(solicitud);
+
+        if (nuevoEstado == Estado.ACEPTADA) {
+            torneoEquiposService.addEquipoToTorneo(
+                solicitud.getId().getTorneo().getIdTorneo(),
+                solicitud.getId().getEquipo().getIdEquipo()
+            );
+            List<Jugador> jugadores = jugadorRepository.findByEquipoIdEquipo(solicitud.getId().getEquipo().getIdEquipo());
+            for (Jugador jugador : jugadores) {
+                torneoJugadoresService.createTorneoJugadores(
+                    solicitud.getId().getTorneo().getIdTorneo(),
+                    jugador.getIdJugador()
+                );
+            }
+
+        
+        }
+    }
+
+    /**
+     * Permite a un equipo solicitar la inscripción a un torneo.
+     *
+     * @param idTorneo ID del torneo al que se desea inscribir.
+     * @param equipo El equipo que solicita la inscripción.
+     * @throws UnauthorizedException Si el usuario no está autenticado.
+     * @throws BadRequestException Si ya existe una solicitud previa.
+     * @throws ResourceNotFoundException Si el torneo no existe.
+     */
+    public void solicitarInscripcion(Long idTorneo, Equipo equipo) {
+        Usuario currentUser = authService.getAuthenticatedUser();
+
+        if (currentUser == null) {
+            throw new UnauthorizedException("Debes estar autenticado para inscribirte en un torneo.");
+        }
+
+        Torneo torneo = torneoRepository.findById(idTorneo)
+            .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado con ID: " + idTorneo));
+
+        SolicitudInscripcionId solicitudId = new SolicitudInscripcionId();
+        solicitudId.setTorneo(torneo);
+        solicitudId.setEquipo(equipo);
+
+        if (solicitudInscripcionRepository.existsById(solicitudId)) {
+            throw new BadRequestException("Ya existe una solicitud de inscripción para este torneo y equipo.");
+        }
+
+        SolicitudInscripcion solicitud = new SolicitudInscripcion();
+        solicitud.setId(solicitudId);
+        solicitud.setEstado(Estado.PENDIENTE);
+        solicitud.setFechaSolicitud(LocalDateTime.now());
+
+        solicitudInscripcionRepository.save(solicitud);
+    }
+
+    /**
+     * Sortear fase de grupos o liga de un torneo.
+     */
+     @Transactional
+    public void sortearGrupos(Long idTorneo) {
+        // Obtener el usuario autenticado
+        Usuario user = authService.getAuthenticatedUser();
+        if (user == null) throw new UnauthorizedException("Debes estar autenticado.");
+        // Verificar si el torneo existe
+        Torneo t = torneoRepository.findById(idTorneo)
+            .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado."));
+        // Verificar si el usuario tiene permisos para sortear
+        if (!user.getRol().equals(Usuario.Rol.ADMINISTRADOR)
+            && !t.getCreador().getIdUsuario().equals(user.getIdUsuario()))
+            throw new AccessDeniedException("No tienes permisos.");
+        // Verificar si el torneo tiene fase de grupos o liga
+        if (!t.isLiga() && !t.isGrupos())
+            throw new BadRequestException("Este torneo no tiene fase de grupos/liguilla.");
+
+            
+        List<TorneoEquipos> eq = torneoEquiposService.getAllEquiposByTorneoAndNotEliminados(idTorneo);
+        partidoService.crearGrupos(t, eq, t.isIdaYVuelta());
+    }
+
+    /**
+     * Sortear fase eliminatoria de un torneo.
+     */
+    @Transactional
+    public void sortearEliminatoria(Long idTorneo) {
+        // Obtener el usuario autenticado
+        Usuario user = authService.getAuthenticatedUser();
+        if (user == null) throw new UnauthorizedException("Debes estar autenticado.");
+        // Verificar si el torneo existe
+        Torneo t = torneoRepository.findById(idTorneo)
+            .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado."));
+        // Verificar si el usuario tiene permisos para sortear
+        if (!user.getRol().equals(Usuario.Rol.ADMINISTRADOR)
+            && !t.getCreador().getIdUsuario().equals(user.getIdUsuario()))
+            throw new AccessDeniedException("No tienes permisos.");
+        // Verificar si el torneo tiene fase de eliminatoria
+        if (!t.isEliminatoria())
+            throw new BadRequestException("Este torneo no es de eliminatoria.");
+
+        
+        List<TorneoEquipos> eq = torneoEquiposService.getAllEquiposByTorneoAndNotEliminados(idTorneo);
+        partidoService.crearEliminatorias(t, eq);
+    }
+
+
+
 }

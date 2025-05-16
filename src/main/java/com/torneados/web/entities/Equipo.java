@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+
 
 @Entity
 @Data
@@ -15,7 +19,8 @@ public class Equipo {
     private Long idEquipo;
     
     @ManyToOne
-    @JoinColumn(name = "id_creador")
+    @JoinColumn(name = "id_creador", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Usuario creador;
     
     @NotBlank(message = "El nombre del equipo es obligatorio")

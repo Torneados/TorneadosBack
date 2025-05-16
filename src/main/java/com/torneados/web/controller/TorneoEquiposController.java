@@ -37,14 +37,20 @@ public class TorneoEquiposController {
         @ApiResponse(responseCode = "403", description = "Forbidden: Falta de permisos", content = @Content)
     })
     @PostMapping("/{idEquipo}")
-    public ResponseEntity<TorneoEquipos> addEquipoToTorneo(@PathVariable Long idTorneo,@PathVariable Long idEquipo, @Valid @RequestBody TorneoEquipos torneoEquipos) {
+    public ResponseEntity<TorneoEquipos> addEquipoToTorneo(
+            @PathVariable Long idTorneo,
+            @PathVariable Long idEquipo) {
+
         TorneoEquipos nuevoTorneoEquipos = torneoEquiposService.addEquipoToTorneo(idTorneo, idEquipo);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(nuevoTorneoEquipos.getId())
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .build()
                 .toUri();
+
         return ResponseEntity.created(location).body(nuevoTorneoEquipos);
     }
+
 
     /*
      * Obtener todos los equipos de un torneo

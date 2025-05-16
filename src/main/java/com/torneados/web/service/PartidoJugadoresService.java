@@ -45,7 +45,7 @@ public class PartidoJugadoresService {
      * @throws AccessDeniedException Si el usuario no tiene permiso para crear el partido
      * 
      */
-    public PartidoJugadores createPartidoJugadores(Long idPartido, Long idJugador) {
+    public PartidoJugadores createPartidoJugadores(Long idPartido, Long idJugador, int numSet) {
         // Verificar autenticación
         Usuario currentUser = authService.getAuthenticatedUser();
         if (currentUser == null) {
@@ -68,7 +68,7 @@ public class PartidoJugadoresService {
         PartidoJugadoresId partidoJugadoresId = new PartidoJugadoresId();
         partidoJugadoresId.setPartido(partido);
         partidoJugadoresId.setJugador(jugador);
-        partidoJugadoresId.setNumSet(1); // Asignar el primer set por defecto
+        partidoJugadoresId.setNumSet(numSet); 
         PartidoJugadores partidoJugadores = new PartidoJugadores();
         partidoJugadores.setId(partidoJugadoresId);
         return partidoJugadoresRepository.save(partidoJugadores);

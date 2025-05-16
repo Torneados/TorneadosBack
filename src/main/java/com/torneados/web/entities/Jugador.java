@@ -5,6 +5,10 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+
 
 @Entity
 @Data
@@ -16,7 +20,8 @@ public class Jugador {
     private Long idJugador;
 
     @ManyToOne
-    @JoinColumn(name = "id_equipo")
+    @JoinColumn(name = "id_equipo", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Equipo equipo;
     
     @NotBlank(message = "El nombre del jugador es obligatorio")
@@ -26,4 +31,3 @@ public class Jugador {
 
     private LocalDate fechaNacimiento;
 }
-
