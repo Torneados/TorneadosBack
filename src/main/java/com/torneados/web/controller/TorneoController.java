@@ -2,6 +2,7 @@ package com.torneados.web.controller;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +11,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.torneados.web.entities.*;
 import com.torneados.web.entities.SolicitudInscripcion.Estado;
 import com.torneados.web.entities.ids.SolicitudInscripcionId;
+import com.torneados.web.exceptions.BadRequestException;
 import com.torneados.web.service.TorneoService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -91,6 +93,30 @@ public class TorneoController {
         return ResponseEntity.ok(torneoActualizado);
     }
 
+    /**
+     * Actualiza únicamente la fase de un torneo.
+     */
+    @Operation(summary = "Actualizar únicamente la fase de un torneo")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "No Content: Fase actualizada correctamente", content = @Content),
+        @ApiResponse(responseCode = "400", description = "Bad Request: Fase inválida", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Not Found: Torneo no encontrado", content = @Content)
+    })
+    @PatchMapping("/{id}/fase")
+    public ResponseEntity<Void> actualizarFase(
+            @PathVariable("id") Long idTorneo,
+            @RequestBody Map<String, Integer> payload) {
+
+        Integer nuevaFase = payload.get("fase");
+        if (nuevaFase == null) {
+            throw new BadRequestException("Debes enviar un valor de fase en el cuerpo de la petición");
+        }
+
+        torneoService.actualizarFase(idTorneo, nuevaFase);
+        return ResponseEntity.noContent().build();
+    }
+
+
     @Operation(summary = "Eliminar un torneo por ID")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "No Content: Torneo eliminado correctamente", content = @Content),
@@ -135,13 +161,12 @@ public class TorneoController {
         @ApiResponse(responseCode = "403", description = "Forbidden: Falta de permisos", content = @Content),
         @ApiResponse(responseCode = "404", description = "Not Found: Solicitud no encontrada", content = @Content)
     })
-   @PutMapping("/{idTorneo}/solicitudes/{idEquipo}")
+    @PutMapping("/{idTorneo}/solicitudes/{idEquipo}")
     public ResponseEntity<Void> cambiarEstadoSolicitud(
             @PathVariable Long idTorneo,
             @PathVariable Long idEquipo,
             @RequestParam Estado nuevoEstado) {
 
-        // Cargar el torneo completo con su creador
         Torneo torneo = torneoService.getTorneoById(idTorneo);
         Equipo equipo = new Equipo();
         equipo.setIdEquipo(idEquipo);
@@ -154,9 +179,6 @@ public class TorneoController {
         return ResponseEntity.ok().build();
     }
 
-        /*
-     * Sortear fase de grupos de un torneo
-     */
     @Operation(summary = "Sortear fase de grupos de un torneo")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "No Content: Grupos sorteados correctamente", content = @Content),
@@ -171,9 +193,6 @@ public class TorneoController {
         return ResponseEntity.noContent().build();
     }
 
-    /*
-     * Sortear fase eliminatoria de un torneo
-     */
     @Operation(summary = "Sortear fase eliminatoria de un torneo")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "No Content: Eliminatoria sorteada correctamente", content = @Content),
@@ -187,6 +206,5 @@ public class TorneoController {
         torneoService.sortearEliminatoria(idTorneo);
         return ResponseEntity.noContent().build();
     }
-
 
 }

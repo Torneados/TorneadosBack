@@ -1,14 +1,17 @@
 package com.torneados.web.security;
 
+import java.util.Arrays;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.config.Customizer;
-
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -24,41 +27,50 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Deshabilitar CSRF para APIs REST
-            .cors(Customizer.withDefaults()) // Habilitar CORS
+            .csrf(csrf -> csrf.disable())
+            .cors(Customizer.withDefaults())          // Lanzará el CorsConfigurationSource de abajo
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/public/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll() // Rutas públicas
-                .requestMatchers(HttpMethod.GET, "/torneos","/torneos/**","/partidos/**", "/equipos", "/equipos/**", "/deportes", "/tipos", "/equipos").permitAll() // Rutas públicas (GET)
-                .requestMatchers("/admin/**").hasAuthority("ROLE_ADMINISTRADOR") // Solo admin
+                .requestMatchers("/", "/public/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                    "/torneos","/torneos/**","/partidos/**",
+                    "/equipos", "/equipos/**", "/deportes", "/tipos", "/partidos").permitAll()
+                .requestMatchers("/admin/**").hasAuthority("ROLE_ADMINISTRADOR")
                 .anyRequest().authenticated()
             )
-            .oauth2Login(oauth2 -> oauth2
-                .userInfoEndpoint(userInfo -> userInfo
-                    .oidcUserService(new OidcUserService())
-                )
-                .successHandler((request, response, authentication) -> {
-                    response.sendRedirect("/auth/redirect");
+            .exceptionHandling(e -> e
+                .accessDeniedHandler((req, res, ex) -> {
+                    res.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    res.setContentType("application/json");
+                    res.getWriter().write("{\"error\":\"" + ex.getMessage() + "\"}");
                 })
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .userInfoEndpoint(u -> u.oidcUserService(new org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService()))
+                .successHandler((req, res, auth) -> res.sendRedirect("/auth/redirect"))
             )
             .logout(logout -> logout
-                .logoutSuccessUrl("/") // Redirigir al cerrar sesión
+                .logoutSuccessUrl("/")
                 .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID", "JWT_TOKEN") // Eliminar cookies
+                .deleteCookies("JSESSIONID","JWT_TOKEN")
             )
-            // Manejo de excepciones
-            .exceptionHandling(e -> e
-                // Deja el authenticationEntryPoint por defecto (redirección a Google si NO está autenticado)
-                // sobrescribe el accessDeniedHandler para usuarios autenticados sin permisos
-                .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    // El usuario está autenticado, pero no tiene los roles necesarios
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.setContentType("application/json");
-                    response.getWriter().write("{\"error\": \""+ accessDeniedException.getMessage() +"\"}");
-                })
-            )
-            // Registramos el filtro antes de UsernamePasswordAuthenticationFilter
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * Bean que configura CORS para permitir PATCH y otros métodos desde tu front.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration cfg = new CorsConfiguration();
+        cfg.setAllowedOrigins(Arrays.asList("http://localhost:5173")); // ajusta a tu origen
+        cfg.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        cfg.setAllowedHeaders(Arrays.asList("*"));
+        cfg.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cfg);
+        return source;
     }
 }

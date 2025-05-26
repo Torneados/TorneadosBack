@@ -17,6 +17,7 @@ import com.torneados.web.exceptions.ResourceNotFoundException;
 import com.torneados.web.exceptions.UnauthorizedException;
 import com.torneados.web.exceptions.AccessDeniedException;
 import com.torneados.web.exceptions.BadRequestException;
+import com.torneados.web.repositories.JugadorRepository;
 import com.torneados.web.repositories.PartidoRepository; import com.torneados.web.repositories.TorneoRepository;
 
 @Service 
@@ -24,7 +25,7 @@ public class PartidoService {
     private final PartidoRepository partidoRepository;
     private final TorneoRepository torneoRepository;
     private final PartidoEquiposService partidoEquiposService;
-    private final JugadorService jugadorService;
+    private final JugadorRepository jugadorRepository;
     private final PartidoJugadoresService partidoJugadoresService;
     private final TorneoEquiposService torneoEquiposService;
     private final AuthService authService;
@@ -32,14 +33,14 @@ public class PartidoService {
     public PartidoService(PartidoRepository partidoRepository, 
                         TorneoRepository torneoRepository,
                         PartidoEquiposService partidoEquiposService, 
-                        JugadorService jugadorService ,
+                        JugadorRepository jugadorRepository,
                         PartidoJugadoresService partidoJugadoresService ,
                         TorneoEquiposService torneoEquiposService,
                         AuthService authService) {
         this.partidoRepository = partidoRepository;
         this.torneoRepository = torneoRepository;
         this.partidoEquiposService = partidoEquiposService;
-        this.jugadorService = jugadorService;
+        this.jugadorRepository = jugadorRepository;
         this.partidoJugadoresService = partidoJugadoresService;
         this.torneoEquiposService = torneoEquiposService;
         this.authService = authService;
@@ -173,11 +174,6 @@ public class PartidoService {
 
     /* METODOS AUXILIARES PARA HACER SORTEO DE UN TORNEO */
 
-    /**
-     * 1. Reparte aleatoriamente los equipos en grupos (A, B, C…).
-     * 2. Guarda el campo grupo en TorneoEquipos.
-     * 3. Para cada grupo, genera un round-robin; si idaYVuelta==true genera también el partido de vuelta.
-     */
     @Transactional
     public void crearGrupos(Torneo torneo, List<TorneoEquipos> inscritos, boolean idaYVuelta) {
         Collections.shuffle(inscritos);
@@ -198,48 +194,160 @@ public class PartidoService {
             );
         }
 
-        // 2) por cada grupo, round-robin
+        // 2) round-robin por grupo con jornadas
         Map<String, List<TorneoEquipos>> porGrupo =
             inscritos.stream().collect(Collectors.groupingBy(TorneoEquipos::getGrupo));
+
         for (List<TorneoEquipos> grupo : porGrupo.values()) {
-            int m = grupo.size();
-            for (int i = 0; i < m; i++) {
-                for (int j = i + 1; j < m; j++) {
-                    crearPartido(grupo.get(i), grupo.get(j), 0, idaYVuelta);
+            List<List<int[]>> jornadas = generarRoundRobin(grupo.size());
+
+            for (int j = 0; j < jornadas.size(); j++) {
+                for (int[] par : jornadas.get(j)) {
+                    crearPartido(grupo.get(par[0]), grupo.get(par[1]), j + 1, null);
+                }
+            }
+
+            if (idaYVuelta) {
+                int offset = jornadas.size();
+                for (int j = 0; j < jornadas.size(); j++) {
+                    for (int[] par : jornadas.get(j)) {
+                        crearPartido(grupo.get(par[1]), grupo.get(par[0]), offset + j + 1, null);
+                    }
                 }
             }
         }
     }
 
-    /**
-     * 1. Prepara un “bracket” de tamaño potencia de 2 (null = bye).
-     * 2. Crea todos los partidos de todas las rondas “vacíos”.
-     */
+
+    @Transactional
+    public void crearLiga(Torneo torneo, List<TorneoEquipos> inscritos, boolean idaYVuelta) {
+        Collections.shuffle(inscritos);
+
+        // 1) Asignar todos al grupo "A"
+        for (TorneoEquipos te : inscritos) {
+            te.setGrupo("A");
+            TorneoEquipos patch = new TorneoEquipos();
+            patch.setGrupo("A");
+            torneoEquiposService.updateEquipoInTorneo(
+                torneo.getIdTorneo(),
+                te.getId().getEquipo().getIdEquipo(),
+                patch
+            );
+        }
+
+        // 2) Round-robin con jornadas
+        List<List<int[]>> jornadas = generarRoundRobin(inscritos.size());
+
+        for (int j = 0; j < jornadas.size(); j++) {
+            for (int[] par : jornadas.get(j)) {
+                crearPartido(inscritos.get(par[0]), inscritos.get(par[1]), j + 1, null);
+            }
+        }
+
+        if (idaYVuelta) {
+            int offset = jornadas.size();
+            for (int j = 0; j < jornadas.size(); j++) {
+                for (int[] par : jornadas.get(j)) {
+                    crearPartido(inscritos.get(par[1]), inscritos.get(par[0]), offset + j + 1, null);
+                }
+            }
+        }
+    }
+
     @Transactional
     public void crearEliminatorias(Torneo torneo, List<TorneoEquipos> inscritos) {
-        Collections.shuffle(inscritos);
-        int n = inscritos.size(), pot2 = 1;
+        int n = inscritos.size();
+        int pot2 = 1;
         while (pot2 < n) pot2 <<= 1;
         int rondas = (int)(Math.log(pot2) / Math.log(2));
 
-        // bracket con null = bye
-        List<TorneoEquipos> bracket = new ArrayList<>(inscritos);
-        for (int i = n; i < pot2; i++) bracket.add(null);
+        List<TorneoEquipos> bracket = new ArrayList<>();
+
+        if (torneo.isLiga() || torneo.isGrupos()) {
+            // Se asume que inscritos ya viene ordenado por clasificación
+            // Emparejar de forma cruzada: 1º vs último, 2º vs penúltimo, etc.
+            for (int i = 0; i < n / 2; i++) {
+                bracket.add(inscritos.get(i));
+                bracket.add(inscritos.get(n - 1 - i));
+            }
+            // Si impar, añadir bye
+            if (n % 2 != 0) bracket.add(inscritos.get(n / 2));
+        } else {
+            // Eliminatoria directa: emparejamientos aleatorios con byes si es necesario
+            Collections.shuffle(inscritos);
+            bracket.addAll(inscritos);
+        }
+
+        while (bracket.size() < pot2) {
+            bracket.add(null); // añadir byes
+        }
 
         // ronda 1
         List<Partido> prev = new ArrayList<>();
         for (int i = 0; i < bracket.size(); i += 2) {
-            prev.add(crearPartido(bracket.get(i), bracket.get(i+1), 1, false));
+            prev.add(crearPartido(bracket.get(i), bracket.get(i + 1), null, 1));
         }
 
         // rondas siguientes
         for (int r = 2; r <= rondas; r++) {
             List<Partido> next = new ArrayList<>();
             for (int i = 0; i < prev.size(); i += 2) {
-                next.add(crearPartido(null, null, r, false));
+                next.add(crearPartido(null, null, null, r));
             }
             prev = next;
         }
+    }
+
+
+
+    private Partido crearPartido(TorneoEquipos te1, TorneoEquipos te2, Integer jornada, Integer ronda) {
+        Partido partido = new Partido();
+        partido.setTorneo(te1 != null ? te1.getId().getTorneo() : te2.getId().getTorneo());
+        partido.setJornada(jornada);
+        partido.setRonda(ronda != null ? ronda : 0); // si no es eliminatoria, usamos 0
+        partido.setFechaComienzo(null);
+
+        final Partido p = partidoRepository.save(partido);
+
+        if (te1 != null) {
+            partidoEquiposService.createPartidoEquipos(p.getIdPartido(), te1.getId().getEquipo().getIdEquipo(), 1, true);
+            jugadorRepository.findByEquipoIdEquipo(te1.getId().getEquipo().getIdEquipo())
+                .forEach(j -> partidoJugadoresService.createPartidoJugadores(p.getIdPartido(), j.getIdJugador(), 1));
+        }
+
+        if (te2 != null) {
+            partidoEquiposService.createPartidoEquipos(p.getIdPartido(), te2.getId().getEquipo().getIdEquipo(), 1, false);
+            jugadorRepository.findByEquipoIdEquipo(te2.getId().getEquipo().getIdEquipo())
+                .forEach(j -> partidoJugadoresService.createPartidoJugadores(p.getIdPartido(), j.getIdJugador(), 1));
+        }
+
+        return p;
+    }
+
+
+    private List<List<int[]>> generarRoundRobin(int n) {
+        List<List<int[]>> jornadas = new ArrayList<>();
+        boolean impar = (n % 2 != 0);
+        int total = impar ? n + 1 : n;
+        int[] equipos = new int[total];
+        for (int i = 0; i < total; i++) equipos[i] = i;
+
+        for (int r = 0; r < total - 1; r++) {
+            List<int[]> jornada = new ArrayList<>();
+            for (int i = 0; i < total / 2; i++) {
+                int e1 = equipos[i], e2 = equipos[total - 1 - i];
+                if (e1 < n && e2 < n) {
+                    jornada.add(new int[]{e1, e2});
+                }
+            }
+            jornadas.add(jornada);
+            // rotación Berger
+            int temp = equipos[1];
+            System.arraycopy(equipos, 2, equipos, 1, total - 2);
+            equipos[total - 1] = temp;
+        }
+
+        return jornadas;
     }
 
     private int calcularNumGrupos(int n) {
@@ -250,88 +358,7 @@ public class PartidoService {
         return (int)Math.ceil((double)n / tam);
     }
 
-    /**
- * Crea un partido (ida + opcional vuelta) y sus stats de equipo+jugadores.
- */
-private Partido crearPartido(TorneoEquipos te1, TorneoEquipos te2, int ronda, boolean esIdaYVuelta) {
-    // 1) Construyo y guardo el partido de ida en una variable final
-    Partido partidoBase = new Partido();
-    partidoBase.setTorneo(te1 != null ? te1.getId().getTorneo() : te2.getId().getTorneo());
-    partidoBase.setRonda(ronda);
-    partidoBase.setFechaComienzo(null);
-    final Partido partidoIda = partidoRepository.save(partidoBase);
 
-    // 2) Estadísticas de equipos y jugadores para el partido de ida
-    if (te1 != null) {
-        partidoEquiposService.createPartidoEquipos(
-            partidoIda.getIdPartido(),
-            te1.getId().getEquipo().getIdEquipo(),
-            1,
-            true
-        );
-        jugadorService.getJugadoresByEquipo(te1.getId().getEquipo().getIdEquipo())
-            .forEach(j -> partidoJugadoresService.createPartidoJugadores(
-                partidoIda.getIdPartido(),
-                j.getIdJugador(),
-                1
-            ));
-    }
-    if (te2 != null) {
-        partidoEquiposService.createPartidoEquipos(
-            partidoIda.getIdPartido(),
-            te2.getId().getEquipo().getIdEquipo(),
-            1,
-            false
-        );
-        jugadorService.getJugadoresByEquipo(te2.getId().getEquipo().getIdEquipo())
-            .forEach(j -> partidoJugadoresService.createPartidoJugadores(
-                partidoIda.getIdPartido(),
-                j.getIdJugador(),
-                1
-            ));
-    }
-
-    // 3) Partido de vuelta (solo si es ida y vuelta), también guardado en variable final
-    if (esIdaYVuelta) {
-        Partido partidoBaseVuelta = new Partido();
-        partidoBaseVuelta.setTorneo(partidoIda.getTorneo());
-        partidoBaseVuelta.setRonda(ronda);
-        partidoBaseVuelta.setFechaComienzo(null);
-        final Partido partidoVuelta = partidoRepository.save(partidoBaseVuelta);
-
-        if (te2 != null) {
-            partidoEquiposService.createPartidoEquipos(
-                partidoVuelta.getIdPartido(),
-                te2.getId().getEquipo().getIdEquipo(),
-                1,
-                true
-            );
-            jugadorService.getJugadoresByEquipo(te2.getId().getEquipo().getIdEquipo())
-                .forEach(j -> partidoJugadoresService.createPartidoJugadores(
-                    partidoVuelta.getIdPartido(),
-                    j.getIdJugador(),
-                    1
-                ));
-        }
-        if (te1 != null) {
-            partidoEquiposService.createPartidoEquipos(
-                partidoVuelta.getIdPartido(),
-                te1.getId().getEquipo().getIdEquipo(),
-                1,
-                false
-            );
-            jugadorService.getJugadoresByEquipo(te1.getId().getEquipo().getIdEquipo())
-                .forEach(j -> partidoJugadoresService.createPartidoJugadores(
-                    partidoVuelta.getIdPartido(),
-                    j.getIdJugador(),
-                    1
-                ));
-        }
-    }
-
-    // Devuelvo el partido de ida
-    return partidoIda;
-}
 
 
 

@@ -49,6 +49,13 @@ public class EquipoController {
         return ResponseEntity.created(location).body(nuevoEquipo);
     }
 
+    @Operation(summary = "Obtener un equipo por ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK: Equipo encontrado", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Not Found: Equipo no encontrado", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized: Falta de autenticación", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Sin permisos para ver el equipo", content = @Content)
+    })
     @GetMapping("/{id}")
     public ResponseEntity<Equipo> getEquipoById(@PathVariable Long id) {
         Equipo equipo = equipoService.getEquipoById(id);

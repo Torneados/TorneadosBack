@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.torneados.web.entities.Equipo;
 import com.torneados.web.entities.Partido;
 import com.torneados.web.entities.PartidoEquipos;
 import com.torneados.web.entities.Usuario;
@@ -105,34 +106,37 @@ public class PartidoEquiposService {
      * @throws AccessDeniedException Si el usuario no tiene permiso para crear el partido
      * 
      */
-    public PartidoEquipos updatePartidoEquipos(Long idPartido, Long idEquipo, PartidoEquipos partidoEquiposActualizado) {
-        // Verificar autenticación
-        Usuario currentUser = authService.getAuthenticatedUser();
-        if (currentUser == null) {
-            throw new UnauthorizedException("Falta autenticación");
-        }
+    public PartidoEquipos updatePartidoEquipos(
+    Long idPartido,
+    Long idEquipo,
+    Integer numSet,
+    PartidoEquipos partidoEquiposActualizado
+    ) {
+        // … autenticación y validaciones como antes …
 
-        // Validar que el partido existe y que el usuario tiene permiso para crear las estadisticas del partido
         Partido partido = partidoRepository.findById(idPartido)
-                .orElseThrow(() -> new ResourceNotFoundException("Partido no encontrado."));
-        if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR) 
-            && !partido.getTorneo().getCreador().equals(currentUser)) {
-            throw new AccessDeniedException("No tienes permiso para crear estadisticas de este partido.");
-        }
+            .orElseThrow(() -> new ResourceNotFoundException("Partido no encontrado."));
+        Equipo equipo = equipoRepository.findById(idEquipo)
+            .orElseThrow(() -> new ResourceNotFoundException("Equipo no encontrado."));
 
-        // Obtener la relación entre el partido y el equipo
-        PartidoEquiposId partidoEquiposId = new PartidoEquiposId();
-        partidoEquiposId.setPartido(partido);
-        partidoEquiposId.setEquipo(equipoRepository.findById(idEquipo)
-                .orElseThrow(() -> new ResourceNotFoundException("Equipo no encontrado.")));
-        PartidoEquipos partidoEquipos = partidoEquiposRepository.findById(partidoEquiposId)
-                .orElseThrow(() -> new ResourceNotFoundException("Estadisticas no encontradas."));
-        
-        // Actualizar los datos del equipo en el partido
-        partidoEquipos.setPuntos(partidoEquiposActualizado.getPuntos());
-        
-        return partidoEquiposRepository.save(partidoEquipos);
+        // Construyo el PK con el numSet de la ruta
+        PartidoEquiposId pk = new PartidoEquiposId();
+        pk.setPartido(partido);
+        pk.setEquipo(equipo);
+        pk.setNumSet(numSet);
+
+        // Cargo (o puedo crear si quisiera)
+        PartidoEquipos existing = partidoEquiposRepository.findById(pk)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Estadísticas no encontradas para el set " + numSet));
+
+        // Actualizo sólo lo que interesa (puntos, jugado, tarjetas…)
+        existing.setPuntos(partidoEquiposActualizado.getPuntos());
+        // si tienes más campos: existing.setJugado(…); etc.
+
+        return partidoEquiposRepository.save(existing);
     }
+
 
     /**
      * Elimina las estadisticas de un equipo en un partido

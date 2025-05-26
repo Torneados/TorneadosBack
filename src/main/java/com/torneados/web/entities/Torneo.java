@@ -6,7 +6,6 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.validator.constraints.URL;
 
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -52,6 +51,15 @@ public class Torneo {
 
     /** fase KO/eliminatoria */
     private boolean eliminatoria;
+
+    /**
+     * Estado actual de la fase del torneo:
+     * 0 = inscripción / sin sortear
+     * 1 = grupos o liga sorteada
+     * 2 = eliminatoria sorteada
+     */
+    @Column(nullable = false)
+    private int fase = 0;
 
     @ManyToOne
     @JoinColumn(name = "id_creador")

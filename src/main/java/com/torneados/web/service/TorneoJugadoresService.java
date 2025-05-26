@@ -3,6 +3,7 @@ package com.torneados.web.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.torneados.web.entities.Jugador;
 import com.torneados.web.entities.Torneo;
@@ -103,34 +104,51 @@ public class TorneoJugadoresService {
      * @throws AccessDeniedException Si el usuario no tiene permiso para crear el torneo
      * 
      */
-    public TorneoJugadores updateTorneoJugadores(Long idTorneo, Long idJugador, TorneoJugadores torneoJugadores) {
-        // Verificar autenticación
+    @Transactional
+    public TorneoJugadores updateTorneoJugadores(Long idTorneo,Long idJugador,TorneoJugadores torneoJugadores) {
+        // 1) Verificar autenticación
         Usuario currentUser = authService.getAuthenticatedUser();
         if (currentUser == null) {
             throw new UnauthorizedException("Falta autenticación");
         }
 
-        // Validar que el torneo existe y que el usuario tiene permiso para crear las estadisticas del torneo
+        // 2) Validar permiso sobre el torneo
         Torneo torneo = torneoRepository.findById(idTorneo)
                 .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado."));
-        if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR) 
-            && !torneo.getCreador().equals(currentUser)) {
-            throw new AccessDeniedException("No tienes permiso para crear estadisticas de este torneo.");
+        if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR)
+                && !torneo.getCreador().equals(currentUser)) {
+            throw new AccessDeniedException("No tienes permiso para modificar este torneo.");
         }
 
-        // Validar que el jugador existe
+        // 3) Validar que el jugador existe
         Jugador jugador = jugadorRepository.findById(idJugador)
                 .orElseThrow(() -> new ResourceNotFoundException("Jugador no encontrado."));
 
-        // Actualizar las estadisticas del jugador en el torneo
-        TorneoJugadoresId torneoJugadoresId = new TorneoJugadoresId();
-        torneoJugadoresId.setTorneo(torneo);
-        torneoJugadoresId.setJugador(jugador);
-        torneoJugadoresRepository.findById(torneoJugadoresId)
-                .orElseThrow(() -> new ResourceNotFoundException("Estadisticas no encontradas."));
-        
-        return torneoJugadoresRepository.save(torneoJugadores);
+        // 4) Cargar la entidad existente TorneoJugadores
+        TorneoJugadoresId pk = new TorneoJugadoresId();
+        pk.setTorneo(torneo);
+        pk.setJugador(jugador);
+        TorneoJugadores existente = torneoJugadoresRepository.findById(pk)
+                .orElseThrow(() -> new ResourceNotFoundException("Estadísticas no encontradas."));
+
+        // 5) Sumamos los valores del objeto recibido (deltas) a los actuales
+        existente.setPartidos(
+            existente.getPartidos() + torneoJugadores.getPartidos()
+        );
+        existente.setPuntos(
+            existente.getPuntos() + torneoJugadores.getPuntos()
+        );
+        existente.setTarjetasAmarillas(
+            existente.getTarjetasAmarillas() + torneoJugadores.getTarjetasAmarillas()
+        );
+        existente.setTarjetasRojas(
+            existente.getTarjetasRojas() + torneoJugadores.getTarjetasRojas()
+        );
+
+        // 6) Guardar y devolver la entidad actualizada
+        return torneoJugadoresRepository.save(existente);
     }
+
 
     /**
      * Elimina las estadisticas de un jugador en un torneo

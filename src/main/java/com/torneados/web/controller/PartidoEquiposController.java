@@ -70,11 +70,18 @@ public class PartidoEquiposController {
         @ApiResponse(responseCode = "403", description = "Forbidden: Falta de permisos"),
         @ApiResponse(responseCode = "404", description = "Not Found: Partido o equipo no encontrado")
     })
-    @PutMapping("/{idEquipo}")
-    public ResponseEntity<PartidoEquipos> updatePartidoEquipos(@PathVariable Long idPartido, @PathVariable Long idEquipo, @RequestBody PartidoEquipos partidoEquipos) {
-        PartidoEquipos updatedPartidoEquipos = partidoEquiposService.updatePartidoEquipos(idPartido, idEquipo, partidoEquipos);
-        return ResponseEntity.ok(updatedPartidoEquipos);
+    @PutMapping("/{idEquipo}/{numSet}")
+    public ResponseEntity<PartidoEquipos> updatePartidoEquipos(
+        @PathVariable Long idPartido,
+        @PathVariable Long idEquipo,
+        @PathVariable Integer numSet,
+        @RequestBody  PartidoEquipos partidoEquiposActualizado
+    ) {
+        PartidoEquipos actualizado = partidoEquiposService
+            .updatePartidoEquipos(idPartido, idEquipo, numSet, partidoEquiposActualizado);
+        return ResponseEntity.ok(actualizado);
     }
+
 
     /*
      * Eliminar las estadisticas de un equipo en un partido

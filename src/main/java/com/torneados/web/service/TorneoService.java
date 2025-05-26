@@ -122,24 +122,26 @@ public class TorneoService {
      */
     public Torneo updateTorneo(Long id, Torneo torneo) {
         Usuario currentUser = authService.getAuthenticatedUser();
-
         if (currentUser == null) {
             throw new UnauthorizedException("Debes estar autenticado para modificar un torneo.");
         }
 
-        Torneo torneoExistente = torneoRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
+        Torneo existente = torneoRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado"));
 
         if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR)
-                && !torneoExistente.getCreador().getIdUsuario().equals(currentUser.getIdUsuario())) {
+            && !existente.getCreador().getIdUsuario().equals(currentUser.getIdUsuario())) {
             throw new AccessDeniedException("No tienes permisos para modificar este torneo");
         }
 
-        if (torneo.getFechaFin() != null && torneo.getFechaComienzo() != null) {
+        // Validación de fechas
+        if (torneo.getFechaComienzo() != null && torneo.getFechaFin() != null) {
             if (torneo.getFechaFin().isBefore(torneo.getFechaComienzo())) {
                 throw new BadRequestException("La fecha de fin no puede ser anterior a la de comienzo.");
             }
         }
+
+        // Validación de enlaces
         if (torneo.getEnlaceInstagram() != null && !torneo.getEnlaceInstagram().contains("instagram.com")) {
             throw new BadRequestException("El enlace de Instagram no parece válido.");
         }
@@ -150,16 +152,63 @@ public class TorneoService {
             throw new BadRequestException("El enlace de Twitter no parece válido.");
         }
 
-        torneoExistente.setNombre(torneo.getNombre());
-        torneoExistente.setLugar(torneo.getLugar());
-        torneoExistente.setFechaComienzo(torneo.getFechaComienzo());
-        torneoExistente.setFechaFin(torneo.getFechaFin());
-        torneoExistente.setEnlaceInstagram(torneo.getEnlaceInstagram());
-        torneoExistente.setEnlaceFacebook(torneo.getEnlaceFacebook());
-        torneoExistente.setEnlaceTwitter(torneo.getEnlaceTwitter());
+        // Actualizar TODOS los campos editables
+        existente.setNombre(torneo.getNombre());
+        existente.setDescripcion(torneo.getDescripcion());
+        existente.setEsPublico(torneo.isEsPublico());
+        existente.setLugar(torneo.getLugar());
+        existente.setDeporte(torneo.getDeporte());
+        existente.setLiga(torneo.isLiga());
+        existente.setIdaYVuelta(torneo.isIdaYVuelta());
+        existente.setGrupos(torneo.isGrupos());
+        existente.setEliminatoria(torneo.isEliminatoria());
+        existente.setFechaComienzo(torneo.getFechaComienzo());
+        existente.setFechaFin(torneo.getFechaFin());
+        existente.setContactoEmail(torneo.getContactoEmail());
+        existente.setContactoTelefono(torneo.getContactoTelefono());
+        existente.setEnlaceInstagram(torneo.getEnlaceInstagram());
+        existente.setEnlaceFacebook(torneo.getEnlaceFacebook());
+        existente.setEnlaceTwitter(torneo.getEnlaceTwitter());
+        // NOTA: el campo 'fase' lo gestionan tus endpoints de sorteo, no se toca aquí
 
-        return torneoRepository.save(torneoExistente);
+        return torneoRepository.save(existente);
     }
+
+    /**
+     * Actualiza únicamente la fase de un torneo.
+     * Comprueba autenticación y permisos, carga la entidad, asigna la nueva fase y guarda.
+     *
+     * @param idTorneo  ID del torneo.
+     * @param nuevaFase Nueva fase a asignar (0, 1 o 2).
+     * @throws UnauthorizedException   Si no hay usuario autenticado.
+     * @throws ResourceNotFoundException Si el torneo no existe.
+     * @throws AccessDeniedException    Si el usuario no es ADMIN ni creador.
+     * @throws BadRequestException      Si la fase es negativa.
+     */
+    @Transactional
+    public void actualizarFase(Long idTorneo, int nuevaFase) {
+        if (nuevaFase < 0) {
+            throw new BadRequestException("Fase inválida: debe ser un valor no negativo");
+        }
+
+        Usuario currentUser = authService.getAuthenticatedUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("Debes estar autenticado para modificar la fase del torneo.");
+        }
+
+        Torneo torneo = torneoRepository.findById(idTorneo)
+            .orElseThrow(() -> new ResourceNotFoundException("Torneo no encontrado con ID: " + idTorneo));
+
+        boolean isCreador = torneo.getCreador().getIdUsuario().equals(currentUser.getIdUsuario());
+        if (!currentUser.getRol().equals(Usuario.Rol.ADMINISTRADOR) && !isCreador) {
+            throw new AccessDeniedException("No tienes permisos para actualizar la fase de este torneo.");
+        }
+
+        torneo.setFase(nuevaFase);
+        // Al estar en contexto @Transactional y ser 'torneo' una entidad managed,
+        // se guardará automáticamente al finalizar el método.
+    }
+
 
     /**
      * Borra un torneo, validando si el usuario autenticado tiene permisos para eliminarlo.
@@ -306,7 +355,11 @@ public class TorneoService {
 
             
         List<TorneoEquipos> eq = torneoEquiposService.getAllEquiposByTorneoAndNotEliminados(idTorneo);
-        partidoService.crearGrupos(t, eq, t.isIdaYVuelta());
+        if (t.isLiga()){
+            partidoService.crearLiga(t, eq, t.isIdaYVuelta());
+        }else{
+            partidoService.crearGrupos(t, eq, t.isIdaYVuelta());
+        }
     }
 
     /**

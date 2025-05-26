@@ -27,6 +27,6 @@ public class PartidoEquipos {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Equipo equipo;
 
-    private int puntos;
+    private Integer puntos;
     private boolean esLocal;
 }

@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/torneos/{idTorneo}/equipos")
@@ -94,8 +93,8 @@ public class TorneoEquiposController {
         @ApiResponse(responseCode = "404", description = "Not Found: Torneo o equipo no encontrado", content = @Content)
     })
     @PutMapping("/{idEquipo}")
-    public ResponseEntity<TorneoEquipos> updateEquipoInTorneo(@PathVariable Long idTorneo, @PathVariable Long idEquipo, @Valid @RequestBody TorneoEquipos torneoEquipos) {
-        TorneoEquipos updatedTorneoEquipos = torneoEquiposService.updateEquipoInTorneo(idTorneo, idEquipo, torneoEquipos);
+    public ResponseEntity<TorneoEquipos> updateEquipoInTorneo(@PathVariable Long idTorneo, @PathVariable Long idEquipo) {
+        TorneoEquipos updatedTorneoEquipos = torneoEquiposService.updateEquipoDataInTorneo(idTorneo, idEquipo);
         return ResponseEntity.ok(updatedTorneoEquipos);
     }
 
