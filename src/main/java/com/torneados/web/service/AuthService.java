@@ -53,7 +53,7 @@ public class AuthService {
         Object principal = authentication.getPrincipal();
     
         if (principal instanceof User userDetails) {
-            String googleId = userDetails.getUsername(); // el username que tú pusiste en el filtro
+            String googleId = userDetails.getUsername(); 
             return usuarioRepository.findByGoogleId(googleId)
                     .orElseThrow(() -> new AccessDeniedException("Usuario no registrado en la base de datos"));
         }
