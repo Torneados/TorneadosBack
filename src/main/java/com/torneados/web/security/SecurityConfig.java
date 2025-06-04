@@ -1,7 +1,5 @@
 package com.torneados.web.security;
 
-import java.util.Arrays;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,9 +7,6 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.cors.CorsConfigurationSource;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -28,13 +23,60 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(Customizer.withDefaults())          // Lanzará el CorsConfigurationSource de abajo
+            .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/public/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                //
+                // 1) RUTAS PÚBLICAS (SIN NECESIDAD DE TOKEN) 
+                //    (///      Obs.: NO llevan prefijo "api/v1" porque nunca son controladores @RestController)
+                //    Por ejemplo: página principal, recursos estáticos, Swagger, OpenAPI...
+                //
+                .requestMatchers(
+                    "/", 
+                    "/public/**", 
+                    "/swagger-ui/**", 
+                    "/v3/api-docs/**"
+                ).permitAll()
+
+                //
+                // 2) ENDPOINTS DE AUTENTICACIÓN / OAUTH
+                //    Los controladores @RestController con @RequestMapping("/auth")
+                //    se servirán como /api/v1/auth/… en tiempo de ejecución.
+                //
+                //    - /api/v1/auth/redirect      ← Redirige aquí tras login en Google
+                //    - /api/v1/auth/token         ← (opcional) si tu front las invoca directamente
+                //    - /api/v1/auth/user-info     ← (opcional) devuelve info del usuario “loggeado”
+                //
+                .requestMatchers(
+                    "/api/v1/auth/redirect",
+                    "/api/v1/auth/token",
+                    "/api/v1/auth/user-info"
+                ).permitAll()
+
+                //
+                // 3) ENDPOINTS GET “PÚBLICOS” DE TUS CONTROLADORES @RestController
+                //    Por ejemplo tu TorneosController, EquiposController, PartidosController… 
+                //    Como tú no pones manualmente “/api/v1” en cada @GetMapping, 
+                //    Spring MVC ya los expone como /api/v1/torneos, /api/v1/equipos, etc.
+                //
                 .requestMatchers(HttpMethod.GET,
-                    "/torneos","/torneos/**","/partidos/**",
-                    "/equipos", "/equipos/**", "/deportes", "/tipos", "/partidos").permitAll()
-                .requestMatchers("/admin/**").hasAuthority("ROLE_ADMINISTRADOR")
+                    "/api/v1/torneos",      "/api/v1/torneos/**",
+                    "/api/v1/partidos",     "/api/v1/partidos/**",
+                    "/api/v1/equipos",      "/api/v1/equipos/**",
+                    "/api/v1/deportes",     "/api/v1/tipos"
+                ).permitAll()
+
+                //
+                // 4) ENDPOINTS DE ADMINISTRACIÓN
+                //    Si tienes controladores con @RequestMapping("/admin") (que a su vez, por WebConfig, son “/api/v1/admin/**”)
+                //
+                .requestMatchers("/api/v1/admin/**")
+                    .hasAuthority("ROLE_ADMINISTRADOR")
+
+                //
+                // 5) CUALQUIER OTRA PETICIÓN A “/api/v1/...”
+                //    (POST a crear/modificar torneos, PUT a actualizar equipos, DELETE, etc.)
+                //    requerirá un JWT válido (o sesión OAuth2 activa).
+                //
                 .anyRequest().authenticated()
             )
             .exceptionHandling(e -> e
@@ -45,32 +87,22 @@ public class SecurityConfig {
                 })
             )
             .oauth2Login(oauth2 -> oauth2
-                .userInfoEndpoint(u -> u.oidcUserService(new org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService()))
-                .successHandler((req, res, auth) -> res.sendRedirect("/auth/redirect"))
+                .userInfoEndpoint(u -> u
+                    .oidcUserService(new org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService())
+                )
+                .successHandler((req, res, auth) -> {
+                    // → Una vez Google complete el login, Spring invocará este successHandler
+                    //   y redirigirá aquí, que coincide con tu AuthController.redirectAfterLogin().
+                    res.sendRedirect("/api/v1/auth/redirect");
+                })
             )
             .logout(logout -> logout
                 .logoutSuccessUrl("/")
                 .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID","JWT_TOKEN")
+                .deleteCookies("JSESSIONID", "JWT_TOKEN")
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
-    }
-
-    /**
-     * Bean que configura CORS para permitir PATCH y otros métodos desde tu front.
-     */
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(Arrays.asList("http://localhost:5173")); // ajusta a tu origen
-        cfg.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-        cfg.setAllowedHeaders(Arrays.asList("*"));
-        cfg.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", cfg);
-        return source;
     }
 }

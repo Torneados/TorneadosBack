@@ -110,7 +110,7 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + idUsuario));
         
-        return torneoRepository.findByCreador(usuario);
+        return torneoRepository.findAllByCreador(usuario);
     }
 
     

@@ -254,74 +254,166 @@ public class PartidoService {
         }
     }
 
+    /**
+     * Crea todo el bracket eliminatorio para un torneo: ronda 1 (con emparejamientos te1 vs te2
+     * y posibles “bye” si es impar) y luego todas las rondas posteriores con partidos “vacíos”
+     * (sin asignar te1/te2), dejando únicamente el campo 'ronda' y el torneo.
+     *
+     * @param torneo     Torneo sobre el que se generan las eliminatorias.
+     * @param inscritos  Lista de TorneoEquipos inscritos (no eliminados).
+     */
     @Transactional
     public void crearEliminatorias(Torneo torneo, List<TorneoEquipos> inscritos) {
         int n = inscritos.size();
+        // Potencia de dos >= n
         int pot2 = 1;
         while (pot2 < n) pot2 <<= 1;
+        // Número de rondas necesarias: log2(pot2)
         int rondas = (int)(Math.log(pot2) / Math.log(2));
 
         List<TorneoEquipos> bracket = new ArrayList<>();
 
+        // 1) Si venimos de fase Liga o Grupos, emparejamos por posición
         if (torneo.isLiga() || torneo.isGrupos()) {
-            // Se asume que inscritos ya viene ordenado por clasificación
-            // Emparejar de forma cruzada: 1º vs último, 2º vs penúltimo, etc.
+            // Se asume que 'inscritos' ya viene ordenado por clasificación (1º, 2º, …).
             for (int i = 0; i < n / 2; i++) {
-                bracket.add(inscritos.get(i));
-                bracket.add(inscritos.get(n - 1 - i));
+                bracket.add(inscritos.get(i));               // mejor clasificado
+                bracket.add(inscritos.get(n - 1 - i));       // peor clasificado
             }
-            // Si impar, añadir bye
-            if (n % 2 != 0) bracket.add(inscritos.get(n / 2));
+            // Si la cantidad es impar, el que queda en el medio pasa directo (“bye”)
+            if (n % 2 != 0) {
+                bracket.add(inscritos.get(n / 2));
+            }
         } else {
-            // Eliminatoria directa: emparejamientos aleatorios con byes si es necesario
+            // 2) Si es eliminatoria directa sin fase previa: mezcla aleatoria
             Collections.shuffle(inscritos);
             bracket.addAll(inscritos);
         }
 
+        // 3) Rellenar con nulls hasta completar pot2: así indicamos “byes” sobrantes
         while (bracket.size() < pot2) {
-            bracket.add(null); // añadir byes
+            bracket.add(null);
         }
 
-        // ronda 1
-        List<Partido> prev = new ArrayList<>();
+        // ===== RONDA 1 =====
+        // Creamos los partidos de la primera ronda:  bracket[0] vs bracket[1], bracket[2] vs bracket[3], …
+        List<Partido> rondasPrevias = new ArrayList<>();
         for (int i = 0; i < bracket.size(); i += 2) {
-            prev.add(crearPartido(bracket.get(i), bracket.get(i + 1), null, 1));
+            TorneoEquipos te1 = bracket.get(i);         // puede ser null si bye
+            TorneoEquipos te2 = bracket.get(i + 1);     // puede ser null si bye
+            Partido partidoRonda1 = crearPartido(
+                torneo, te1, te2,
+                /*jornada=*/ null,
+                /*ronda=*/ 1
+            );
+            rondasPrevias.add(partidoRonda1);
         }
 
-        // rondas siguientes
+        // ===== RONDAS SIGUIENTES =====
+        // Para cada ronda r = 2..rondas, creamos partidos sin equipos asignados
         for (int r = 2; r <= rondas; r++) {
-            List<Partido> next = new ArrayList<>();
-            for (int i = 0; i < prev.size(); i += 2) {
-                next.add(crearPartido(null, null, null, r));
+            List<Partido> siguientes = new ArrayList<>();
+            /*
+             * Cada dos partidos previos se emparejan para generar uno en la siguiente ronda.
+             * Pero en este punto no conocemos aún los ganadores, así que creamos partidos “vacíos”
+             * indicando solo la ronda y el torneo. Más adelante habrá que asignarles te1/te2.
+             */
+            for (int i = 0; i < rondasPrevias.size(); i += 2) {
+                // te1=null y te2=null: partido placeholder de ronda r
+                Partido partidoRondaR = crearPartido(
+                    torneo,
+                    /*te1=*/ null,
+                    /*te2=*/ null,
+                    /*jornada=*/ null,
+                    /*ronda=*/ r
+                );
+                siguientes.add(partidoRondaR);
             }
-            prev = next;
+            // Preparamos para la siguiente iteración
+            rondasPrevias = siguientes;
         }
     }
 
 
 
-    private Partido crearPartido(TorneoEquipos te1, TorneoEquipos te2, Integer jornada, Integer ronda) {
-        Partido partido = new Partido();
-        partido.setTorneo(te1 != null ? te1.getId().getTorneo() : te2.getId().getTorneo());
-        partido.setJornada(jornada);
-        partido.setRonda(ronda != null ? ronda : 0); // si no es eliminatoria, usamos 0
-        partido.setFechaComienzo(null);
-
-        final Partido p = partidoRepository.save(partido);
-
+    private Partido crearPartido(TorneoEquipos te1,TorneoEquipos te2,Integer jornada, Integer ronda) {
+        // Obtenemos el torneo a partir de te1 o te2, si alguno es no-null.
+        Torneo torneo;
         if (te1 != null) {
-            partidoEquiposService.createPartidoEquipos(p.getIdPartido(), te1.getId().getEquipo().getIdEquipo(), 1, true);
-            jugadorRepository.findByEquipoIdEquipo(te1.getId().getEquipo().getIdEquipo())
-                .forEach(j -> partidoJugadoresService.createPartidoJugadores(p.getIdPartido(), j.getIdJugador(), 1));
+            torneo = te1.getId().getTorneo();
+        } else if (te2 != null) {
+            torneo = te2.getId().getTorneo();
+        } else {
+            throw new IllegalArgumentException(
+                "No se puede crear un partido sin Torneo: te1 y te2 son ambos null"
+            );
+        }
+        return crearPartido(torneo, te1, te2, jornada, ronda);
+    }
+
+    /**
+     * crea un Partido en la base de datos
+     * con el Torneo (obligatorio), la ronda y (opcionalmente) te1/te2.
+     * Si te1 o te2 son null, el partido queda creado sin equipos (para rondas posteriores).
+     *
+     * @param torneo   El torneo al que pertenece este partido (jamás debe ser null).
+     * @param te1      TorneoEquipos del equipo local o null si no hay equipo asignado.
+     * @param te2      TorneoEquipos del equipo visitante o null si no hay equipo asignado.
+     * @param jornada  Número de jornada (puede quedar null si no aplica).
+     * @param ronda    Número de ronda eliminatoria (1 = primera ronda, 2 = siguiente, etc.).
+     * @return Partido recién guardado en BD.
+     */
+    private Partido crearPartido(Torneo torneo,TorneoEquipos te1,TorneoEquipos te2,Integer jornada,Integer ronda) {
+        // 1) Construir y guardar la entidad Partido
+        Partido partido = new Partido();
+        partido.setTorneo(torneo);
+        partido.setJornada(jornada);
+        partido.setRonda(ronda != null ? ronda : 0);
+        partido.setFechaComienzo(null); // si quieres dejarla en null inicialmente
+
+        // Al usar @Transactional en el método superior, la entidad queda “managed” tras save()
+        final Partido pGuardado = partidoRepository.save(partido);
+
+        // 2) Si hay equipo local (te1), crear relaciones PartidoEquipos y PartidoJugadores
+        if (te1 != null) {
+            Long idEquipo1 = te1.getId().getEquipo().getIdEquipo();
+            partidoEquiposService.createPartidoEquipos(
+                pGuardado.getIdPartido(),
+                idEquipo1,
+                /*numSet=*/ 1,
+                /*esLocal=*/ true
+            );
+            // También ligamos los jugadores de ese equipo
+            jugadorRepository.findByEquipoIdEquipo(idEquipo1)
+                .forEach(j ->
+                    partidoJugadoresService.createPartidoJugadores(
+                        pGuardado.getIdPartido(),
+                        j.getIdJugador(),
+                        /*numSet=*/ 1
+                    )
+                );
         }
 
+        // 3) Si hay equipo visitante (te2), creamos PartidoEquipos y PartidoJugadores
         if (te2 != null) {
-            partidoEquiposService.createPartidoEquipos(p.getIdPartido(), te2.getId().getEquipo().getIdEquipo(), 1, false);
-            jugadorRepository.findByEquipoIdEquipo(te2.getId().getEquipo().getIdEquipo())
-                .forEach(j -> partidoJugadoresService.createPartidoJugadores(p.getIdPartido(), j.getIdJugador(), 1));
+            Long idEquipo2 = te2.getId().getEquipo().getIdEquipo();
+            partidoEquiposService.createPartidoEquipos(
+                pGuardado.getIdPartido(),
+                idEquipo2,
+                /*numSet=*/ 1,
+                /*esLocal=*/ false
+            );
+            jugadorRepository.findByEquipoIdEquipo(idEquipo2)
+                .forEach(j ->
+                    partidoJugadoresService.createPartidoJugadores(
+                        pGuardado.getIdPartido(),
+                        j.getIdJugador(),
+                        /*numSet=*/ 1
+                    )
+                );
         }
 
-        return p;
+        return pGuardado;
     }
 
 

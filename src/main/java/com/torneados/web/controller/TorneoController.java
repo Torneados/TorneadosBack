@@ -4,6 +4,9 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -47,26 +50,31 @@ public class TorneoController {
         return ResponseEntity.created(location).body(nuevoTorneo);
     }
 
-    @Operation(summary = "Obtener todos los torneos")
+    @Operation(summary = "Obtener torneos paginados y filtrados")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "OK: Torneos obtenidos correctamente", content = @Content)
     })
     @GetMapping
-    public List<Torneo> getAllTorneos(
+    public Page<Torneo> getAllTorneos(
             @RequestParam(name = "nombre", required = false) String nombre,
             @RequestParam(name = "lugar", required = false) String lugar,
-            @RequestParam(name = "deporte", required = false) String deporte) {
+            @RequestParam(name = "deporte", required = false) String deporte,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        boolean hayFiltros = (nombre != null && !nombre.isEmpty())
+                        || (lugar != null && !lugar.isEmpty())
+                        || (deporte != null && !deporte.isEmpty());
 
-        if ((nombre == null || nombre.isEmpty())
-                && (lugar == null || lugar.isEmpty())
-                && (deporte == null || deporte.isEmpty())) {
-            return torneoService.getAllTorneos();
+        if (!hayFiltros) {
+            // Sin filtros: devolvemos todos los torneos paginados
+            return torneoService.getAllTorneos(pageable);
+        } else {
+            // Con filtros: normalizamos posibles nulos a cadena vacía
+            String nom = (nombre != null ? nombre : "");
+            String lug = (lugar   != null ? lugar   : "");
+            String dep = (deporte != null ? deporte : "");
+            return torneoService.getTorneosFiltrados(nom, lug, dep, pageable);
         }
-        return torneoService.getTorneosFiltrados(
-                nombre != null ? nombre : "",
-                lugar != null ? lugar : "",
-                deporte != null ? deporte : ""
-        );
     }
 
     @Operation(summary = "Obtener un torneo por id")

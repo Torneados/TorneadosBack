@@ -3,6 +3,8 @@ package com.torneados.web.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,32 +81,64 @@ public class TorneoService {
     }
 
     /**
-     * Obtiene una lista con todos los torneos filtrados según el nombre, lugar y deporte.
+     * Devuelve todos los torneos paginados, sin aplicar filtros.
      *
-     * @param filtroNombre Cadena de texto para filtrar los torneos por nombre.
-     * @param filtroLugar Cadena de texto para filtrar los torneos por lugar (opcional).
-     * @param filtroDeporte Cadena de texto para filtrar los torneos por deporte (opcional).
-     * @return La lista de torneos encontrados.
+     * @param pageable Objeto Pageable (page, size, etc).
+     * @return Página de torneos.
      */
-    public List<Torneo> getTorneosFiltrados(String filtroNombre, String filtroLugar, String filtroDeporte) {
-        if ((filtroLugar == null || filtroLugar.isEmpty()) && (filtroDeporte == null || filtroDeporte.isEmpty())) {
-            return torneoRepository.findByNombreContainingIgnoreCase(filtroNombre);
-        } else if (filtroLugar != null && !filtroLugar.isEmpty() && (filtroDeporte == null || filtroDeporte.isEmpty())) {
-            return torneoRepository.findByNombreContainingIgnoreCaseAndLugarContainingIgnoreCase(filtroNombre, filtroLugar);
-        } else if ((filtroLugar == null || filtroLugar.isEmpty()) && filtroDeporte != null && !filtroDeporte.isEmpty()) {
-            return torneoRepository.findByNombreContainingIgnoreCaseAndDeporte_DeporteContainingIgnoreCase(filtroNombre, filtroDeporte);
+    public Page<Torneo> getAllTorneos(Pageable pageable) {
+        return torneoRepository.findAll(pageable);
+    }
+
+    /**
+     * Devuelve torneos filtrados por nombre, lugar y/o deporte, y paginados.
+     *
+     * @param filtroNombre  Cadena para filtrar por nombre (puede estar vacía).
+     * @param filtroLugar   Cadena para filtrar por lugar (puede estar vacía o nula).
+     * @param filtroDeporte Cadena para filtrar por deporte (puede estar vacía o nula).
+     * @param pageable      Objeto Pageable con page/size.
+     * @return Página de torneos que cumplan esos filtros.
+     */
+    public Page<Torneo> getTorneosFiltrados(
+            String filtroNombre,
+            String filtroLugar,
+            String filtroDeporte,
+            Pageable pageable
+    ) {
+        boolean filtraLugar = filtroLugar != null && !filtroLugar.isEmpty();
+        boolean filtraDeporte = filtroDeporte != null && !filtroDeporte.isEmpty();
+
+        // Normalizamos filtros nulos a cadena vacía
+        String nom = (filtroNombre != null ? filtroNombre : "");
+        String lug = (filtroLugar  != null ? filtroLugar  : "");
+        String dep = (filtroDeporte != null ? filtroDeporte : "");
+
+        if (!filtraLugar && !filtraDeporte) {
+            // Solo filtrar por nombre
+            return torneoRepository.findByNombreContainingIgnoreCase(nom, pageable);
+
+        } else if (filtraLugar && !filtraDeporte) {
+            // Filtrar por nombre + lugar
+            return torneoRepository.findByNombreContainingIgnoreCaseAndLugarContainingIgnoreCase(
+                    nom, lug, pageable
+            );
+
+        } else if (!filtraLugar && filtraDeporte) {
+            // Filtrar por nombre + deporte
+            return torneoRepository.findByNombreContainingIgnoreCaseAndDeporte_DeporteContainingIgnoreCase(
+                    nom, dep, pageable
+            );
+
         } else {
+            // Filtrar por nombre + lugar + deporte
             return torneoRepository.findByNombreContainingIgnoreCaseAndLugarContainingIgnoreCaseAndDeporte_DeporteContainingIgnoreCase(
-                filtroNombre, filtroLugar, filtroDeporte);
+                    nom, lug, dep, pageable
+            );
         }
     }
 
     /**
-     * Obtiene los datos de un torneo por su ID.
-     *
-     * @param id ID del torneo a buscar.
-     * @return El torneo encontrado.
-     * @throws ResourceNotFoundException Si el torneo no existe.
+     * Obtiene un torneo por su ID (sin paginar, porque es una única entidad).
      */
     public Torneo getTorneoById(Long id) {
         return torneoRepository.findById(id)
