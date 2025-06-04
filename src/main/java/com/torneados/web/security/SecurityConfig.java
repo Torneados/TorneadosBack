@@ -25,58 +25,30 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> auth
-                //
-                // 1) RUTAS PÚBLICAS (SIN NECESIDAD DE TOKEN) 
-                //    (///      Obs.: NO llevan prefijo "api/v1" porque nunca son controladores @RestController)
-                //    Por ejemplo: página principal, recursos estáticos, Swagger, OpenAPI...
-                //
+                //RUTAS PÚBLICAS (SIN NECESIDAD DE TOKEN) ...
                 .requestMatchers(
                     "/", 
                     "/public/**", 
                     "/swagger-ui/**", 
                     "/v3/api-docs/**"
                 ).permitAll()
-
-                //
-                // 2) ENDPOINTS DE AUTENTICACIÓN / OAUTH
-                //    Los controladores @RestController con @RequestMapping("/auth")
-                //    se servirán como /api/v1/auth/… en tiempo de ejecución.
-                //
-                //    - /api/v1/auth/redirect      ← Redirige aquí tras login en Google
-                //    - /api/v1/auth/token         ← (opcional) si tu front las invoca directamente
-                //    - /api/v1/auth/user-info     ← (opcional) devuelve info del usuario “loggeado”
-                //
+                // ENDPOINTS DE AUTENTICACIÓN / OAUTH2
                 .requestMatchers(
                     "/api/v1/auth/redirect",
                     "/api/v1/auth/token",
                     "/api/v1/auth/user-info"
                 ).permitAll()
-
-                //
-                // 3) ENDPOINTS GET “PÚBLICOS” DE TUS CONTROLADORES @RestController
-                //    Por ejemplo tu TorneosController, EquiposController, PartidosController… 
-                //    Como tú no pones manualmente “/api/v1” en cada @GetMapping, 
-                //    Spring MVC ya los expone como /api/v1/torneos, /api/v1/equipos, etc.
-                //
+                // ENDPOINTS GET “PÚBLICOS” DE TUS CONTROLADORES @RestController
                 .requestMatchers(HttpMethod.GET,
                     "/api/v1/torneos",      "/api/v1/torneos/**",
                     "/api/v1/partidos",     "/api/v1/partidos/**",
                     "/api/v1/equipos",      "/api/v1/equipos/**",
                     "/api/v1/deportes",     "/api/v1/tipos"
                 ).permitAll()
-
-                //
-                // 4) ENDPOINTS DE ADMINISTRACIÓN
-                //    Si tienes controladores con @RequestMapping("/admin") (que a su vez, por WebConfig, son “/api/v1/admin/**”)
-                //
+                // ENDPOINTS DE ADMINISTRACIÓN
                 .requestMatchers("/api/v1/admin/**")
                     .hasAuthority("ROLE_ADMINISTRADOR")
-
-                //
-                // 5) CUALQUIER OTRA PETICIÓN A “/api/v1/...”
-                //    (POST a crear/modificar torneos, PUT a actualizar equipos, DELETE, etc.)
-                //    requerirá un JWT válido (o sesión OAuth2 activa).
-                //
+                // CUALQUIER OTRA PETICIÓN A “/api/v1/...”
                 .anyRequest().authenticated()
             )
             .exceptionHandling(e -> e
